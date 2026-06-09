@@ -1,0 +1,8 @@
+# Dependencias de Python para el Grabador de Zoom
+# Nota: La instalación de estos paquetes a través de pip requiere cabeceras de desarrollo en el sistema 
+# (libdbus-1-dev, libglib2.0-dev). En distribuciones Debian/Ubuntu/Zorin, se recomienda encarecidamente
+# instalarlos usando el gestor de paquetes del sistema (apt):
+# sudo apt install python3-dbus python3-gi
+
+dbus-python>=1.2.18
+PyGObject>=3.42.0

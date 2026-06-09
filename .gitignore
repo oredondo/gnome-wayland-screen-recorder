@@ -1,0 +1,30 @@
+# Entornos virtuales
+.venv/
+venv/
+ENV/
+
+# Archivos temporales de grabación del proyecto
+.temp/
+temp_zoom_video_*
+temp_zoom_audio_*
+test_recording_*
+test_audio.ogg
+merged_output.webm
+
+# Archivos de log
+*.log
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Configuraciones de editores/IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
