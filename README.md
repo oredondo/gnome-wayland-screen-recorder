@@ -158,3 +158,10 @@ VIDEO_CRF = 24
 # FPS del vídeo final (10fps es ideal para lectura de texto y diapositivas)
 VIDEO_FRAMERATE = 10
 ```
+
+---
+
+## 📄 Licencia
+
+Este proyecto está bajo la **Licencia MIT**. Consulta el archivo **[LICENSE](file:///home/cristina/Documentos/grabarPantalla/LICENSE)** para más detalles.
+
