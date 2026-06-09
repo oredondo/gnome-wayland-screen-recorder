@@ -138,6 +138,27 @@ RECORD_MICROPHONE = False
 
 ---
 
+---
+
+## 🧪 Running Unit Tests
+
+We have included a comprehensive unit test suite utilizing **pytest** to verify the core logic of window detection, D-Bus recording commands, and FFmpeg parameter mapping without needing real recordings or external hardware.
+
+To run the tests:
+1.  Ensure you have development dependencies installed:
+    ```bash
+    pip install pytest
+    # or install via requirements.txt
+    pip install -r requirements.txt
+    ```
+2.  Run the tests using the following command in the project root:
+    ```bash
+    pytest test_recorder.py
+    ```
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License**. See the **[LICENSE](file:///home/cristina/Documentos/grabarPantalla/LICENSE)** file for legal terms.
+
