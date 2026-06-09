@@ -22,7 +22,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ZoomRecorderApp")
 
-
 class ZoomRecorderApp:
     """Main application orchestrating Zoom detection, recording, and processing."""
     
@@ -37,8 +36,8 @@ class ZoomRecorderApp:
         # Verify if FFmpeg is available
         if not self.processor.is_available():
             logger.warning("FFmpeg is not installed. Compression and merging will fail unless it is installed.")
-            print("[ADVERTENCIA] FFmpeg no está instalado. El script funcionará pero no podrá realizar")
-            print("              la compresión final hasta que lo instales con: sudo apt install ffmpeg\n")
+            print("[WARNING] FFmpeg is not installed. The script will function but will not be able to perform")
+            print("          the final compression until you install it by running: sudo apt install ffmpeg\n")
             
         # Register signal handlers for graceful exit
         signal.signal(signal.SIGINT, self._handle_exit)
@@ -121,27 +120,27 @@ class ZoomRecorderApp:
         output_path = os.path.join(config.OUTPUT_DIR, filename)
         
         logger.info(f"Merging and compressing into: {output_path}")
-        print(f"\n[INFO] Procesando y comprimiendo la grabación. Guardando en: {output_path}...")
+        print(f"\n[INFO] Processing and compressing the recording. Saving to: {output_path}...")
         
         # Run merging and compression
         success = self.processor.merge_and_compress(video_file, audio_file, output_path)
         if success:
             logger.info(f"Finished processing. Final file: {output_path}")
-            print(f"[ÉXITO] Grabación completada y guardada como: {filename}\n")
+            print(f"[SUCCESS] Recording completed and saved as: {filename}\n")
         else:
             logger.error("Failed to process the final file.")
-            print("[ERROR] No se pudo procesar la grabación. Los archivos temporales se conservan en sus ubicaciones.\n")
+            print("[ERROR] Failed to process the recording. Temporary files are preserved in their locations.\n")
 
     def run_manual_mode(self):
         """Runs the manual recording mode."""
-        print("\n[INFO] Iniciando grabación manual de pantalla completa...")
+        print("\n[INFO] Starting manual full screen recording...")
         if not self.start_recording():
-            print("[ERROR] No se pudo iniciar la grabación manual.")
+            print("[ERROR] Failed to start manual recording.")
             return
             
         print("\n=========================================================")
-        print("   GRABANDO PANTALLA Y AUDIO EN MODO MANUAL...           ")
-        print("   Presiona ENTER para detener la grabación y guardar.   ")
+        print("   RECORDING SCREEN AND AUDIO IN MANUAL MODE...          ")
+        print("   Press ENTER to stop recording and save.               ")
         print("=========================================================")
         
         try:
@@ -150,12 +149,12 @@ class ZoomRecorderApp:
         except (KeyboardInterrupt, SystemExit):
             pass # Graceful shutdown handled by _handle_exit signal handler
             
-        print("\n[INFO] Deteniendo grabación manual y procesando...")
+        print("\n[INFO] Stopping manual recording and processing...")
         self.stop_recording_and_process()
 
     def run_auto_mode(self):
         """Runs the automatic Zoom detection recording mode (Daemon)."""
-        print("\nEsperando a que comience una llamada de Zoom... (Ctrl+C para salir)")
+        print("\nWaiting for a Zoom call to start... (Ctrl+C to exit)")
         logger.info("Daemon started. Polling for Zoom calls...")
         
         while self.is_running:
@@ -164,18 +163,17 @@ class ZoomRecorderApp:
                 
                 if meeting_active and not self.is_recording:
                     logger.info("Zoom call detected!")
-                    print("\n[LLAMADA DETECTADA] Comenzando a grabar...")
+                    print("\n[CALL DETECTED] Starting to record...")
                     self.start_recording()
                     
                 elif not meeting_active and self.is_recording:
                     logger.info("Zoom call ended.")
-                    print("\n[LLAMADA FINALIZADA] Deteniendo grabación y guardando archivo...")
+                    print("\n[CALL ENDED] Stopping recording and saving file...")
                     self.stop_recording_and_process()
-                    print("Esperando a que comience una llamada de Zoom... (Ctrl+C para salir)")
+                    print("Waiting for a Zoom call to start... (Ctrl+C to exit)")
                     
                 # Poll status based on config.py
                 time.sleep(config.POLLING_INTERVAL)
-
                 
             except KeyboardInterrupt:
                 break
@@ -188,7 +186,7 @@ class ZoomRecorderApp:
         print("=========================================================")
         print("     Zoom Screen & Audio Auto-Recorder (Linux Wayland)   ")
         print("=========================================================")
-        print(f"Directorio de salida: {config.OUTPUT_DIR}")
+        print(f"Output directory: {config.OUTPUT_DIR}")
         
         # Check command-line flags
         mode = None
@@ -200,13 +198,13 @@ class ZoomRecorderApp:
                 mode = "2"
                 
         if not mode:
-            print("\nSelecciona el modo de grabación:")
-            print("  1) Grabación automática al detectar llamadas de Zoom (Daemon)")
-            print("  2) Grabación manual de pantalla completa e inmediata")
+            print("\nSelect recording mode:")
+            print("  1) Automatic recording upon detecting Zoom calls (Daemon)")
+            print("  2) Manual full screen recording immediately")
             try:
-                mode = input("Selección (1 o 2, por defecto 1): ").strip()
+                mode = input("Selection (1 or 2, default 1): ").strip()
             except (KeyboardInterrupt, SystemExit):
-                print("\nSaliendo...")
+                print("\nExiting...")
                 return
             if not mode:
                 mode = "1"
@@ -219,4 +217,3 @@ class ZoomRecorderApp:
 if __name__ == "__main__":
     app = ZoomRecorderApp()
     app.run()
-

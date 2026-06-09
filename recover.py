@@ -10,13 +10,13 @@ from processor import MediaProcessor
 
 def recover_latest_recording():
     print("=========================================================")
-    print("       Recuperador de Grabaciones Temporales             ")
+    print("           Temporary Recordings Recovery Tool            ")
     print("=========================================================")
     
     processor = MediaProcessor()
     if not processor.is_available():
-        print("[ERROR] FFmpeg no está instalado en este sistema.")
-        print("        Por favor instálalo ejecutando: sudo apt update && sudo apt install ffmpeg")
+        print("[ERROR] FFmpeg is not installed on this system.")
+        print("        Please install it by running: sudo apt update && sudo apt install ffmpeg")
         return
         
     # Search for temp videos
@@ -39,10 +39,10 @@ def recover_latest_recording():
     audio_files = glob.glob(os.path.join(config.TEMP_DIR, "temp_zoom_audio_*.ogg"))
     
     if not video_files:
-        print("[INFO] No se encontraron archivos de vídeo temporal 'temp_zoom_video_*.webm'.")
+        print("[INFO] No temporary video files 'temp_zoom_video_*.webm' were found.")
         return
     if not audio_files:
-        print("[INFO] No se encontraron archivos de audio temporal 'temp_zoom_audio_*.ogg'.")
+        print("[INFO] No temporary audio files 'temp_zoom_audio_*.ogg' were found.")
         return
         
     # Sort by modification time (most recent first)
@@ -52,13 +52,13 @@ def recover_latest_recording():
     latest_video = video_files[0]
     latest_audio = audio_files[0]
     
-    print(f"\nSe han detectado las siguientes grabaciones más recientes:")
-    print(f"  Vídeo: {os.path.basename(latest_video)} ({datetime.fromtimestamp(os.path.getmtime(latest_video)).strftime('%Y-%m-%d %H:%M:%S')})")
+    print(f"\nThe following recent temporary recordings have been detected:")
+    print(f"  Video: {os.path.basename(latest_video)} ({datetime.fromtimestamp(os.path.getmtime(latest_video)).strftime('%Y-%m-%d %H:%M:%S')})")
     print(f"  Audio: {os.path.basename(latest_audio)} ({datetime.fromtimestamp(os.path.getmtime(latest_audio)).strftime('%Y-%m-%d %H:%M:%S')})")
     
-    confirm = input("\n¿Deseas fusionar y comprimir estos archivos ahora? (S/n): ").strip().lower()
-    if confirm not in ("", "s", "si", "yes"):
-        print("Operación cancelada.")
+    confirm = input("\nDo you wish to merge and compress these files now? (Y/n): ").strip().lower()
+    if confirm not in ("", "y", "yes", "s", "si"):
+        print("Operation canceled.")
         return
         
     # Generate final file name based on video file modification time or current time
@@ -67,12 +67,12 @@ def recover_latest_recording():
     filename = f"{dt.strftime(config.FILENAME_FORMAT)}.mp4"
     output_path = os.path.join(config.OUTPUT_DIR, filename)
     
-    print(f"\n[INFO] Procesando y comprimiendo grabación a: {output_path}")
+    print(f"\n[INFO] Merging and compressing recording to: {output_path}")
     success = processor.merge_and_compress(latest_video, latest_audio, output_path)
     if success:
-        print(f"[ÉXITO] Grabación recuperada y guardada como: {filename}\n")
+        print(f"[SUCCESS] Recording recovered and saved as: {filename}\n")
     else:
-        print("[ERROR] Falló la compresión con FFmpeg. Asegúrate de que no haya problemas con los archivos temporales.\n")
+        print("[ERROR] FFmpeg compression failed. Check the temporary files for errors.\n")
 
 if __name__ == "__main__":
     recover_latest_recording()

@@ -1,39 +1,38 @@
 import os
 
 # ==============================================================================
-#                      CONFIGURACIÓN GENERAL DEL GRABADOR
+#                      GENERAL RECORDER CONFIGURATIONS
 # ==============================================================================
 
-# Directorios de la aplicación
-OUTPUT_DIR = "/home/cristina/Vídeos/"
+# Application Directories
+OUTPUT_DIR = "/home/cristina/Documentos/Zoom"
 TEMP_DIR = "/home/cristina/Documentos/grabarPantalla/.temp"
 LOG_FILE = os.path.join(OUTPUT_DIR, "zoom_recorder.log")
 
-# Asegurar que los directorios existan
+# Ensure directories exist
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# Formato del nombre de archivo final (ej. 20260609_2225)
-# Referencia: https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
+# Final file name timestamp format (e.g., 20260609_2225)
+# Reference: https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
 FILENAME_FORMAT = "%Y%m%d_%H%M"
 
-# Intervalo en segundos para comprobar si hay reuniones de Zoom activas
+# Polling interval in seconds to check for active Zoom meetings
 POLLING_INTERVAL = 3
 
 # ==============================================================================
-#                  PARÁMETROS DE CAPTURA DE PANTALLA Y AUDIO
+#                  SCREEN AND AUDIO CAPTURE CONFIGURATIONS
 # ==============================================================================
 
-# Capturar y mostrar el cursor del ratón en la grabación
+# Capture and show mouse cursor in the recording
 DRAW_CURSOR = True
 
-# Grabar la entrada de tu propio micrófono
-# Si es False, solo se grabará el sonido interno de la llamada (el audio de los demás participantes)
+# Record laptop microphone input
+# If False, only the system internal audio (other meeting participants) will be recorded
 RECORD_MICROPHONE = False
 
-
-# Nombres de ventana a ignorar durante la detección de Zoom
-# (Evita capturar paneles de control, portapapeles o el chat principal vacío)
+# Window names to ignore during Zoom active call detection
+# (Prevents capturing secondary control bars, clipboards, or empty main windows)
 ZOOM_IGNORED_TITLES = {
     "zoom workplace", 
     "zoom", 
@@ -42,36 +41,36 @@ ZOOM_IGNORED_TITLES = {
 }
 
 # ==============================================================================
-#                  PARÁMETROS DE COMPRESIÓN Y CODIFICACIÓN (FFMPEG)
+#                  FFMPEG COMPRESSION AND ENCODING SETTINGS
 # ==============================================================================
 
-# Tasa de fotogramas del vídeo final (FPS)
-# Nota: 10 FPS reduce masivamente el tamaño del archivo y es perfecto para diapositivas
+# Output video frame rate (FPS)
+# Note: 10 FPS drastically reduces file size and is perfect for slides/text sharing
 VIDEO_FRAMERATE = 10
 
-# Factor de calidad constante (CRF: Constant Rate Factor)
-# Rango recomendado: 18 (calidad alta, archivos grandes) a 28 (calidad baja, archivos pequeños)
+# Constant Rate Factor (CRF) quality control
+# Recommended range: 18 (highest quality, larger files) to 28 (lower quality, smaller files)
 VIDEO_CRF = 24
 
-# Códec de vídeo a utilizar
+# Video codec to use
 VIDEO_CODEC = "libx264"
 
-# Velocidad de compresión (preset)
-# Opciones: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
-# 'slow' optimiza al máximo el peso del archivo final para la calidad elegida
+# Encoding speed preset
+# Options: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+# 'slow' optimizes output file size to the maximum for the selected quality
 VIDEO_PRESET = "slow"
 
-# Afinación especial del codificador para el tipo de contenido
-# 'stillimage' optimiza H.264 para diapositivas, textos fijos y capturas de escritorio
+# Encoder tune profile
+# 'stillimage' optimizes H.264 compression for slides, static text, and desktop layouts
 VIDEO_TUNE = "stillimage"
 
-# Formato de píxeles para el vídeo final
-# 'yuv420p' garantiza la máxima compatibilidad con reproductores web y móviles
+# Pixel format for the final output
+# 'yuv420p' ensures maximum compatibility with web browsers and mobile media players
 VIDEO_PIX_FMT = "yuv420p"
 
-# Códec de audio a utilizar para la mezcla final
+# Audio codec to use for the final merge
 AUDIO_CODEC = "aac"
 
-# Tasa de bits del audio (bitrate)
-# 96k es ideal para voz humana clara y consume un espacio ínfimo
+# Audio bitrate
+# 96k provides clean voice quality while using minimal disk space
 AUDIO_BITRATE = "96k"

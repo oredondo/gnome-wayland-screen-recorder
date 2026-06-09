@@ -5,14 +5,14 @@ import shutil
 
 def install():
     print("=========================================================")
-    print("       Instalador del Grabador de Pantalla y Zoom       ")
+    print("           Zoom & Screen Recorder Installer              ")
     print("=========================================================")
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     gui_path = os.path.join(script_dir, "gui.py")
     
     # Check dependencies
-    print("\n[1/3] Verificando dependencias...")
+    print("\n[1/3] Checking dependencies...")
     
     missing_packages = []
     # Check PyGObject (GTK 3)
@@ -23,7 +23,7 @@ def install():
         print("  - Gtk 3.0: OK")
     except (ImportError, ValueError):
         missing_packages.append("python3-gi")
-        print("  - Gtk 3.0: No encontrado")
+        print("  - Gtk 3.0: Not found")
         
     # Check Python DBus
     try:
@@ -31,25 +31,25 @@ def install():
         print("  - D-Bus: OK")
     except ImportError:
         missing_packages.append("python3-dbus")
-        print("  - D-Bus: No encontrado")
+        print("  - D-Bus: Not found")
         
     # Check FFmpeg
     ffmpeg_found = shutil.which("ffmpeg") is not None
     if ffmpeg_found:
         print("  - FFmpeg: OK")
     else:
-        print("  - FFmpeg: No encontrado")
+        print("  - FFmpeg: Not found")
         
     # Check xwininfo
     xwininfo_found = shutil.which("xwininfo") is not None
     if xwininfo_found:
         print("  - xwininfo: OK")
     else:
-        print("  - xwininfo: No encontrado")
+        print("  - xwininfo: Not found")
         
     if missing_packages or not ffmpeg_found or not xwininfo_found:
-        print("\n[AVISO] Faltan dependencias en el sistema.")
-        print("Para que la aplicación funcione correctamente, por favor instala lo siguiente:")
+        print("\n[WARNING] System dependencies are missing.")
+        print("For the application to function correctly, please install the following:")
         sys_install_cmd = "sudo apt update && sudo apt install "
         pkgs = []
         if "python3-gi" in missing_packages: pkgs.extend(["python3-gi", "gstreamer1.0-plugins-good", "gstreamer1.0-plugins-base", "gstreamer1.0-plugins-bad"])
@@ -59,27 +59,27 @@ def install():
         
         print(f"        {sys_install_cmd}{' '.join(pkgs)}")
         
-        confirm = input("\n¿Deseas continuar con la creación del lanzador a pesar de esto? (S/n): ").strip().lower()
-        if confirm not in ("", "s", "si", "yes"):
-            print("Instalación cancelada.")
+        confirm = input("\nDo you wish to continue creating the launcher shortcut anyway? (y/N): ").strip().lower()
+        if confirm not in ("y", "yes", "s", "si"):
+            print("Installation canceled.")
             return
             
     # Create Desktop Launcher
-    print("\n[2/3] Creando lanzador en el Escritorio...")
+    print("\n[2/3] Creating Desktop launcher...")
     
     desktop_dir_es = os.path.expanduser("~/Escritorio")
     desktop_dir_en = os.path.expanduser("~/Desktop")
     
     desktop_dir = desktop_dir_es if os.path.exists(desktop_dir_es) else desktop_dir_en
     if not os.path.exists(desktop_dir):
-        print(f"  - No se encontró directorio de Escritorio. Se creará: {desktop_dir}")
+        print(f"  - Desktop directory not found. Creating: {desktop_dir}")
         os.makedirs(desktop_dir, exist_ok=True)
         
     launcher_path = os.path.join(desktop_dir, "grabador-zoom.desktop")
     
     desktop_entry = f"""[Desktop Entry]
-Name=Grabador de Zoom
-Comment=Graba la pantalla completa o llamadas de Zoom de forma automática
+Name=Zoom & Screen Recorder
+Comment=Automatically record full screen or Zoom calls
 Exec=python3 {gui_path}
 Icon=video-display
 Terminal=false
@@ -91,21 +91,21 @@ StartupNotify=true
     try:
         with open(launcher_path, "w") as f:
             f.write(desktop_entry)
-        print(f"  - Creado archivo: {launcher_path}")
+        print(f"  - Created file: {launcher_path}")
         
         # Make executable
         os.chmod(launcher_path, 0o755)
-        print("  - Permisos de ejecución otorgados.")
+        print("  - Execution permissions granted.")
         
         # Trust the desktop file (removes warning in GNOME/Zorin OS)
         subprocess.run(["gio", "set", launcher_path, "metadata::trusted", "yes"], stderr=subprocess.DEVNULL)
-        print("  - Marcado como lanzador de confianza en el sistema.")
+        print("  - Marked launcher as trusted in the system.")
         
     except Exception as e:
-        print(f"  - [ERROR] Falló crear lanzador en Escritorio: {e}")
+        print(f"  - [ERROR] Failed to create launcher on Desktop: {e}")
         
     # Create Applications Menu Entry
-    print("\n[3/3] Añadiendo la aplicación al menú de inicio (Aplicaciones)...")
+    print("\n[3/3] Adding application to the system menu...")
     menu_dir = os.path.expanduser("~/.local/share/applications")
     os.makedirs(menu_dir, exist_ok=True)
     menu_launcher_path = os.path.join(menu_dir, "grabador-zoom.desktop")
@@ -113,16 +113,16 @@ StartupNotify=true
     try:
         with open(menu_launcher_path, "w") as f:
             f.write(desktop_entry)
-        print(f"  - Creado acceso en menú: {menu_launcher_path}")
+        print(f"  - Created menu shortcut: {menu_launcher_path}")
         os.chmod(menu_launcher_path, 0o755)
     except Exception as e:
-        print(f"  - [ERROR] Falló crear acceso en menú: {e}")
+        print(f"  - [ERROR] Failed to create menu shortcut: {e}")
         
     print("\n=========================================================")
-    print("      ¡INSTALACIÓN COMPLETADA CON ÉXITO!                ")
+    print("      INSTALLATION COMPLETED SUCCESSFULLY!               ")
     print("=========================================================")
-    print(f"El acceso directo está disponible en tu Escritorio y en")
-    print(f"el menú de aplicaciones de Zorin OS / GNOME.")
+    print(f"The launcher shortcut is now available on your Desktop")
+    print(f"and in the applications menu of Zorin OS / GNOME.")
     print("=========================================================\n")
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ class MediaProcessor:
         """Merges and compresses the video and audio files into the output MP4 file."""
         if not self.is_available():
             logger.error("FFmpeg is not installed on this system. Cannot merge and compress files.")
-            print("\n[ERROR] FFmpeg no está instalado. Por favor instálalo ejecutando:")
+            print("\n[ERROR] FFmpeg is not installed. Please install it by running:")
             print("        sudo apt update && sudo apt install ffmpeg\n")
             return False
             
@@ -52,7 +52,6 @@ class MediaProcessor:
             "-pix_fmt", config.VIDEO_PIX_FMT,
             output_path
         ]
-
         
         logger.info(f"Running FFmpeg merge command: {' '.join(cmd)}")
         try:

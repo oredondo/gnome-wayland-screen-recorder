@@ -13,7 +13,6 @@ class ZoomDetector:
         self._pattern = re.compile(r'^\s*(0x[0-9a-fA-F]+)\s+"([^"]*)":\s+\("([^"]*)"\s+"([^"]*)"\)')
         # Titles to ignore (main client window and system placeholders) from config
         self._ignored_titles = config.ZOOM_IGNORED_TITLES
-
         
     def is_meeting_active(self) -> bool:
         """Returns True if an active Zoom meeting is detected, False otherwise."""
