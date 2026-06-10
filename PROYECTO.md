@@ -56,7 +56,7 @@ graph TD
     
     F -->|Creates| I[video_temp.webm]
     G -->|Creates| J[audio_temp.ogg]
-    H -->|Merges & Compresses CRF+10FPS| K[Timestamp.mp4]
+    H -->|Merges & Compresses CRF+10FPS| K[Timestamp.mp4 & Timestamp.mp3]
 ```
 
 ### Wayland Desktop Capture
@@ -76,5 +76,7 @@ To compress static desktop slide-sharing meetings with high efficiency, we confi
 | **Video Codec** | `libx264` | Offers universal compatibility across web browsers, smartphones, and players. |
 | **Quality (CRF)** | `24` | Constant Rate Factor 24 adjusts bitrates dynamically. It stays near zero for static slides, allocating bits only when movement occurs. |
 | **Encoding Tune** | `stillimage` | Optimizes H.264 compression specifically for slide decks and flat text, reducing fuzzy compression artifacts around characters. |
-| **Encoding Preset**| `slow` | Instructs the encoder to analyze frames more thoroughly, compressing files further. |
-| **Audio Codec** | `AAC at 96k` | Perfect quality for speech while maintaining a negligible file size. |
+| **Encoding Preset**| `medium` | Balances speed and size. Processes recordings 2x-4x faster than the 'slow' preset with almost no visible quality difference. |
+| **Audio Codec (MP4)** | `AAC at 96k` | Perfect quality for speech while maintaining a negligible file size inside the video container. |
+| **Standalone MP3** | `MP3 at 128k` | Automatically encodes a secondary audio-only file with the same name. |
+| **Audio Sync Offset**| `0.2s` | Delays the audio stream by 0.2 seconds to compensate for the GStreamer startup latency relative to GNOME Screencast. |

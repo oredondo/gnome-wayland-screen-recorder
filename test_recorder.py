@@ -127,17 +127,25 @@ class TestMediaProcessor:
 
     @patch('shutil.which')
     @patch('os.path.exists')
+    @patch('subprocess.Popen')
     @patch('subprocess.run')
     @patch('os.remove')
-    def test_merge_and_compress_success(self, mock_remove, mock_run, mock_exists, mock_which):
+    def test_merge_and_compress_success(self, mock_remove, mock_run, mock_popen, mock_exists, mock_which):
         # Mock FFmpeg found and files present
         mock_which.return_value = "/usr/bin/ffmpeg"
         mock_exists.return_value = True # video and audio exist
         
-        # Mock subprocess successful run
-        mock_process_result = MagicMock()
-        mock_process_result.returncode = 0
-        mock_run.return_value = mock_process_result
+        # Mock get_duration (via subprocess.run)
+        mock_duration_result = MagicMock()
+        mock_duration_result.stdout = "60.0"
+        mock_run.return_value = mock_duration_result
+        
+        # Mock Popen
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = ""
+        mock_process.communicate.return_value = ("", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
         
         processor = MediaProcessor()
         success = processor.merge_and_compress("v.webm", "a.ogg", "out.mp4")
@@ -145,8 +153,8 @@ class TestMediaProcessor:
         assert success is True
         
         # Verify FFmpeg execution with config variables
-        mock_run.assert_called_once()
-        cmd_arg = mock_run.call_args[0][0]
+        mock_popen.assert_called_once()
+        cmd_arg = mock_popen.call_args[0][0]
         
         assert "/usr/bin/ffmpeg" in cmd_arg
         assert "-crf" in cmd_arg
@@ -154,6 +162,8 @@ class TestMediaProcessor:
         assert config.VIDEO_PRESET in cmd_arg
         assert config.VIDEO_TUNE in cmd_arg
         assert config.AUDIO_BITRATE in cmd_arg
+        assert "libmp3lame" in cmd_arg
+        assert config.AUDIO_MP3_BITRATE in cmd_arg
         
         # Verify temp files cleanup
         mock_remove.assert_any_call("v.webm")

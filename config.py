@@ -48,6 +48,12 @@ ZOOM_IGNORED_TITLES = {
 # Note: 10 FPS drastically reduces file size and is perfect for slides/text sharing
 VIDEO_FRAMERATE = 10
 
+# Audio synchronization offset in seconds
+# Positive values delay audio (use when audio starts too early relative to video)
+# Negative values delay video (use when audio starts too late relative to video)
+AUDIO_SYNC_OFFSET = 0.2
+
+
 # Constant Rate Factor (CRF) quality control
 # Recommended range: 18 (highest quality, larger files) to 28 (lower quality, smaller files)
 VIDEO_CRF = 24
@@ -57,8 +63,8 @@ VIDEO_CODEC = "libx264"
 
 # Encoding speed preset
 # Options: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
-# 'slow' optimizes output file size to the maximum for the selected quality
-VIDEO_PRESET = "slow"
+# 'medium' is the default and provides a great balance of speed and file size
+VIDEO_PRESET = "medium"
 
 # Encoder tune profile
 # 'stillimage' optimizes H.264 compression for slides, static text, and desktop layouts
@@ -74,3 +80,7 @@ AUDIO_CODEC = "aac"
 # Audio bitrate
 # 96k provides clean voice quality while using minimal disk space
 AUDIO_BITRATE = "96k"
+
+# Audio bitrate for the standalone MP3 output file
+# 128k is standard and provides very clear voice quality
+AUDIO_MP3_BITRATE = "128k"

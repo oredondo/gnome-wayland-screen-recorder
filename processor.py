@@ -11,12 +11,47 @@ class MediaProcessor:
     
     def __init__(self):
         self.ffmpeg_path = shutil.which("ffmpeg")
+        self.active_process = None
         
     def is_available(self) -> bool:
         """Returns True if ffmpeg is installed, False otherwise."""
         return self.ffmpeg_path is not None
 
-    def merge_and_compress(self, video_path: str, audio_path: str, output_path: str) -> bool:
+    def get_duration(self, file_path: str) -> float:
+        """Returns the duration of a media file in seconds using ffprobe."""
+        try:
+            ffprobe_path = shutil.which("ffprobe")
+            if not ffprobe_path:
+                return 0.0
+            cmd = [
+                ffprobe_path,
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                file_path
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            return float(result.stdout.strip())
+        except Exception as e:
+            logger.error(f"Error getting duration for {file_path}: {e}")
+            return 0.0
+
+    def abort(self):
+        """Aborts the active FFmpeg process if it is running."""
+        if self.active_process:
+            logger.info("Aborting active FFmpeg process...")
+            try:
+                self.active_process.terminate()
+                self.active_process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                logger.warning("FFmpeg did not terminate. Killing...")
+                self.active_process.kill()
+            except Exception as e:
+                logger.error(f"Error aborting FFmpeg: {e}")
+            finally:
+                self.active_process = None
+
+    def merge_and_compress(self, video_path: str, audio_path: str, output_path: str, progress_callback=None) -> bool:
         """Merges and compresses the video and audio files into the output MP4 file."""
         if not self.is_available():
             logger.error("FFmpeg is not installed on this system. Cannot merge and compress files.")
@@ -36,12 +71,35 @@ class MediaProcessor:
         if out_dir and not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
             
-        # FFmpeg command for high compression screen recording, reading from config.py:
+        total_duration = self.get_duration(video_path)
+        if total_duration <= 0.0:
+            total_duration = 1.0 # Prevent division by zero
+            
+        # Build FFmpeg command with sync offset alignment if configured
+        sync_offset = getattr(config, "AUDIO_SYNC_OFFSET", 0.0)
+        
         cmd = [
             self.ffmpeg_path,
-            "-y",
-            "-i", video_path,
-            "-i", audio_path,
+            "-y"
+        ]
+        
+        # If offset is negative, delay the video (advance audio)
+        if sync_offset < 0.0:
+            cmd.extend(["-itsoffset", str(abs(sync_offset))])
+        cmd.extend(["-i", video_path])
+        
+        # If offset is positive, delay the audio
+        if sync_offset > 0.0:
+            cmd.extend(["-itsoffset", str(sync_offset)])
+        cmd.extend(["-i", audio_path])
+        
+        # Determine MP3 output path
+        mp3_output_path = os.path.splitext(output_path)[0] + ".mp3"
+        
+        cmd.extend([
+            # Output 1: MP4 (Video and Audio)
+            "-map", "0:v",
+            "-map", "1:a",
             "-filter:v", f"fps=fps={config.VIDEO_FRAMERATE}",
             "-c:v", config.VIDEO_CODEC,
             "-crf", str(config.VIDEO_CRF),
@@ -50,18 +108,52 @@ class MediaProcessor:
             "-c:a", config.AUDIO_CODEC,
             "-b:a", config.AUDIO_BITRATE,
             "-pix_fmt", config.VIDEO_PIX_FMT,
-            output_path
-        ]
+            "-progress", "pipe:1",
+            output_path,
+            
+            # Output 2: MP3 (Audio only)
+            "-map", "1:a",
+            "-c:a", "libmp3lame",
+            "-b:a", getattr(config, "AUDIO_MP3_BITRATE", "128k"),
+            mp3_output_path
+        ])
         
         logger.info(f"Running FFmpeg merge command: {' '.join(cmd)}")
         try:
-            # Run FFmpeg and capture outputs in case of error
-            result = subprocess.run(
-                cmd, 
-                stdout=subprocess.PIPE, 
+            # Spawn FFmpeg and capture progress in real-time
+            self.active_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                check=True
+                text=True,
+                bufsize=1
             )
+            
+            while True:
+                line = self.active_process.stdout.readline()
+                if not line:
+                    break
+                line = line.strip()
+                if line.startswith("out_time_us="):
+                    try:
+                        us = int(line.split("=")[1])
+                        current_time = us / 1000000.0
+                        progress = min(current_time / total_duration, 1.0)
+                        if progress_callback:
+                            progress_callback(progress)
+                    except Exception:
+                        pass
+            
+            # Wait for the process to complete and fetch remaining logs
+            stdout, stderr = self.active_process.communicate()
+            rc = self.active_process.returncode
+            self.active_process = None
+            
+            if rc != 0:
+                logger.error(f"FFmpeg failed with exit code {rc}")
+                logger.error(f"FFmpeg stderr: {stderr}")
+                return False
+                
             logger.info(f"FFmpeg command completed successfully. Saved to {output_path}")
             
             # Clean up temporary files upon success
@@ -74,10 +166,7 @@ class MediaProcessor:
                 
             return True
             
-        except subprocess.CalledProcessError as e:
-            logger.error(f"FFmpeg failed with exit code {e.returncode}")
-            logger.error(f"FFmpeg stderr: {e.stderr.decode('utf-8')}")
-            return False
         except Exception as e:
             logger.error(f"Error executing FFmpeg: {e}")
+            self.active_process = None
             return False

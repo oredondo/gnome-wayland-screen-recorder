@@ -88,7 +88,9 @@ python3 gui.py
 *   **GUI Usage**:
     *   **Select Mode**: Choose "Automatic" to wait for Zoom meetings in the background, or "Manual" to capture full screen immediately.
     *   **Record**: Click the suggested **Record** button (highlights in green/blue) to start. The digital timer will count elapsed time in `HH:MM:SS`.
-    *   **Stop**: Click the **Stop** button (red). Recording stops instantly, and compression processes asynchronously in a background thread to prevent UI freezing.
+    *   **Stop**: Click the **Stop** button (red). Recording stops instantly, and compression processes asynchronously in a background thread.
+        *   **Real-time Progress**: A progress bar will appear, showing the exact encoding percentage (e.g. `Compressing... 45%`) relative to the recording's length.
+        *   **Exit Protection**: If you close the app or cancel while compression is active, a warning dialog will prevent accidental data loss. You can choose to wait or force exit (which safely aborts FFmpeg to prevent background leaks).
 
 ---
 
@@ -123,7 +125,7 @@ python3 gui.py
 All variables are centralized in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**. You can open and edit it to change paths, qualities, and behaviors:
 
 ```python
-# Output folder for final MP4 videos
+# Output folder for final MP4 videos and MP3 audios
 OUTPUT_DIR = "/home/cristina/Documentos/Zoom"
 
 # Frame rate for video files (10 FPS keeps files tiny while maintaining readability)
@@ -131,6 +133,15 @@ VIDEO_FRAMERATE = 10
 
 # Constant Rate Factor (CRF: 18-28. Higher means more compression)
 VIDEO_CRF = 24
+
+# Encoding preset (medium provides the best balance of speed and file size)
+VIDEO_PRESET = "medium"
+
+# Audio synchronization offset in seconds (delays audio to align with video start)
+AUDIO_SYNC_OFFSET = 0.2
+
+# Audio bitrate for the standalone MP3 output file
+AUDIO_MP3_BITRATE = "128k"
 
 # Set to True if you want to record your own microphone along with speaker audio
 RECORD_MICROPHONE = False

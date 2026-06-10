@@ -42,6 +42,7 @@ class ZoomRecorderGUI(Gtk.Window):
         
         self.is_recording = False
         self.is_waiting_zoom = False
+        self.is_processing = False
         self.recording_start_time = None
         
         # Timer and Polling Sources
@@ -51,7 +52,8 @@ class ZoomRecorderGUI(Gtk.Window):
         # Build UI Components
         self.build_ui()
         
-        # Window Close Event
+        # Window Close Events
+        self.connect("delete-event", self.on_delete_event)
         self.connect("destroy", self.on_destroy)
         
     def build_ui(self):
@@ -102,6 +104,14 @@ class ZoomRecorderGUI(Gtk.Window):
         self.status_label = Gtk.Label(label="Ready to record")
         self.status_label.modify_font(Pango.FontDescription("italic 10"))
         display_box.pack_start(self.status_label, False, False, 0)
+        
+        # Progress Bar
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_text("")
+        self.progress_bar.set_show_text(True)
+        self.progress_bar.set_no_show_all(True)
+        self.progress_bar.hide()
+        display_box.pack_start(self.progress_bar, False, False, 5)
         
         # Buttons Box
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=15)
@@ -214,6 +224,12 @@ class ZoomRecorderGUI(Gtk.Window):
             
         logger.info("Recording stopped. Spawning merge and compression thread...")
         
+        # Setup and show progress bar
+        self.is_processing = True
+        self.progress_bar.set_fraction(0.0)
+        self.progress_bar.set_text("Initializing compression...")
+        self.progress_bar.show()
+        
         # Spin worker thread to do the heavy compression without freezing the GUI
         threading.Thread(
             target=self.merge_and_compress_worker,
@@ -233,11 +249,22 @@ class ZoomRecorderGUI(Gtk.Window):
         filename = f"{now.strftime(config.FILENAME_FORMAT)}.mp4"
         output_path = os.path.join(config.OUTPUT_DIR, filename)
         
-        success = self.processor.merge_and_compress(video_file, audio_file, output_path)
+        def progress_cb(progress):
+            GLib.idle_add(self.update_progress, progress)
+            
+        success = self.processor.merge_and_compress(video_file, audio_file, output_path, progress_callback=progress_cb)
         GLib.idle_add(self.on_processing_complete, success, filename if success else "FFmpeg error")
+
+    def update_progress(self, progress: float):
+        """Updates the progress bar in the main thread."""
+        self.progress_bar.set_fraction(progress)
+        percentage = int(progress * 100)
+        self.progress_bar.set_text(f"Compressing... {percentage}%")
 
     def on_processing_complete(self, success: bool, info: str):
         """Callback run on main thread when compression completes."""
+        self.is_processing = False
+        self.progress_bar.hide()
         if success:
             logger.info(f"Processing complete: {info}")
             self.reset_ui_state(f"Recording saved: {info}")
@@ -289,6 +316,57 @@ class ZoomRecorderGUI(Gtk.Window):
         
         self.is_recording = False
         self.is_waiting_zoom = False
+        self.is_processing = False
+        
+    def on_delete_event(self, widget, event) -> bool:
+        """Handles close window event to warn user if recording or processing."""
+        if self.is_processing:
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.NONE,
+                text="Compression in Progress"
+            )
+            dialog.add_button("Exit and Abort", Gtk.ResponseType.CLOSE)
+            dialog.add_button("Keep Waiting", Gtk.ResponseType.OK)
+            dialog.format_secondary_text(
+                "Closing the application now will abort the compression process, "
+                "which may corrupt the final video file.\n\n"
+                "Do you want to keep waiting for it to finish?"
+            )
+            response = dialog.run()
+            dialog.destroy()
+            
+            if response == Gtk.ResponseType.OK:
+                return True # Cancel close
+            else:
+                logger.warning("User chose to abort compression. Terminating FFmpeg...")
+                self.processor.abort()
+                return False # Proceed with close
+                
+        if self.is_recording:
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text="Recording in Progress"
+            )
+            dialog.format_secondary_text(
+                "A recording is currently active.\n\n"
+                "Do you want to stop and save it before exiting?"
+            )
+            response = dialog.run()
+            dialog.destroy()
+            
+            if response == Gtk.ResponseType.YES:
+                self.stop_recording_session_and_process()
+                return True # Cancel close so it finishes merging
+            else:
+                return False # Proceed with close
+                
+        return False # Proceed with close
         
     def on_destroy(self, widget):
         # Cleanup recording
@@ -310,6 +388,9 @@ class ZoomRecorderGUI(Gtk.Window):
                 output_path = os.path.join(config.OUTPUT_DIR, filename)
                 self.processor.merge_and_compress(video_file, audio_file, output_path)
                 
+        if self.is_processing:
+            self.processor.abort()
+            
         Gtk.main_quit()
 
 if __name__ == "__main__":

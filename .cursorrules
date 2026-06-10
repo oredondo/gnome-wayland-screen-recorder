@@ -1,0 +1,40 @@
+# AI Instructions and Repository Rules
+
+This file defines the rules and guidelines that AI coding assistants (like Gemini, Claude, Cursor, or Copilot) must follow when making changes to this repository.
+
+---
+
+## 📖 1. Documentation Integrity (CRITICAL)
+Whenever you introduce a new feature, change a configuration option, modify the GUI layout, or edit database/D-Bus/GStreamer configurations:
+1.  **Always update the documentation** in both:
+    *   **[README.md](file:///home/cristina/Documentos/grabarPantalla/README.md)**: For user-facing features, GUI guides, CLI flags, configuration variables, installation steps, and test instructions.
+    *   **[PROYECTO.md](file:///home/cristina/Documentos/grabarPantalla/PROYECTO.md)**: For design specifications, architectural diagrams (Mermaid), and low-level FFmpeg parameters or codec rationale.
+2.  Maintain all docstrings and logging statements intact unless they are directly affected by the new code logic.
+
+---
+
+## 🏗️ 2. Architectural Rules
+*   **Object-Oriented Programming (OOP)**: Keep the architecture object-oriented and components strictly decoupled.
+*   **Modular Constraints**: Every file should be single-purpose. Try to keep source files under **150 lines** to maintain readability and modularity.
+*   **Centralized Configuration**: All runtime settings, directory paths, codecs, framerates, qualities, and syncing offsets must live in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**. Do not hardcode values.
+
+---
+
+## ⚡ 3. Media Processing and Sync Guidelines
+*   **Dual Outputs**: The `MediaProcessor` in **[processor.py](file:///home/cristina/Documentos/grabarPantalla/processor.py)** must generate both an `.mp4` (video+audio) and a `.mp3` (standalone audio track) simultaneously with the same filename.
+*   **Audio/Video Sync**: To compensate for system startups (D-Bus screencast vs GStreamer/PipeWire audio), always respect and apply the `AUDIO_SYNC_OFFSET` variable using FFmpeg's `-itsoffset` flag.
+*   **Non-blocking Processing**: The GUI must run compression asynchronously in a background thread and report progress to the `Gtk.ProgressBar` in real-time. It must also warn the user if they try to close the window while a compression is active, allowing them to abort cleanly.
+
+---
+
+## 🧪 4. Testing and Verification
+*   Always run the unit test suite after making changes to the codebase:
+    ```bash
+    .venv/bin/python -m pytest test_recorder.py
+    ```
+*   Ensure that any modifications to `MediaProcessor` or `VideoRecorder` are covered by corresponding mocked unit tests in **[test_recorder.py](file:///home/cristina/Documentos/grabarPantalla/test_recorder.py)**.
+
+---
+
+## 🌍 5. Language Policy
+*   **English Only**: All source code, variable/class names, UI text, logs, console print messages, comments, commit messages, and documentation (`README.md`, `PROYECTO.md`, rules) must be written exclusively in **English**.
