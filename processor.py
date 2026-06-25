@@ -119,35 +119,51 @@ class MediaProcessor:
         ])
         
         logger.info(f"Running FFmpeg merge command: {' '.join(cmd)}")
+        stderr_file_path = output_path + ".ffmpeg.err"
         try:
             # Spawn FFmpeg and capture progress in real-time
-            self.active_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
-            )
+            with open(stderr_file_path, "w") as stderr_file:
+                self.active_process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=stderr_file,
+                    text=True,
+                    bufsize=1
+                )
+                
+                while True:
+                    line = self.active_process.stdout.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line.startswith("out_time_us="):
+                        try:
+                            us = int(line.split("=")[1])
+                            current_time = us / 1000000.0
+                            progress = min(current_time / total_duration, 1.0)
+                            if progress_callback:
+                                progress_callback(progress)
+                        except Exception:
+                            pass
+                
+                # Wait for the process to complete
+                self.active_process.wait()
+                rc = self.active_process.returncode
+                self.active_process = None
             
-            while True:
-                line = self.active_process.stdout.readline()
-                if not line:
-                    break
-                line = line.strip()
-                if line.startswith("out_time_us="):
+            # Read stderr from file if failed
+            stderr = ""
+            if os.path.exists(stderr_file_path):
+                if rc != 0:
                     try:
-                        us = int(line.split("=")[1])
-                        current_time = us / 1000000.0
-                        progress = min(current_time / total_duration, 1.0)
-                        if progress_callback:
-                            progress_callback(progress)
-                    except Exception:
-                        pass
-            
-            # Wait for the process to complete and fetch remaining logs
-            stdout, stderr = self.active_process.communicate()
-            rc = self.active_process.returncode
-            self.active_process = None
+                        with open(stderr_file_path, "r") as f:
+                            stderr = f.read()
+                    except Exception as read_err:
+                        stderr = f"Could not read stderr file: {read_err}"
+                try:
+                    os.remove(stderr_file_path)
+                except Exception:
+                    pass
             
             if rc != 0:
                 logger.error(f"FFmpeg failed with exit code {rc}")
