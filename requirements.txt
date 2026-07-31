@@ -7,5 +7,7 @@
 dbus-python>=1.2.18
 PyGObject>=3.42.0
 
-# Testing dependencies
+# Testing, Linting & Security dependencies
 pytest>=7.0.0
+flake8>=7.0.0
+bandit>=1.7.0

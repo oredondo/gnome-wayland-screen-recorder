@@ -1,40 +1,71 @@
-# AI Instructions and Repository Rules
+# AI Instructions, Testing & Code Quality Rules
 
-This file defines the rules and guidelines that AI coding assistants (like Gemini, Claude, Cursor, or Copilot) must follow when making changes to this repository.
-
----
-
-## 📖 1. Documentation Integrity (CRITICAL)
-Whenever you introduce a new feature, change a configuration option, modify the GUI layout, or edit database/D-Bus/GStreamer configurations:
-1.  **Always update the documentation** in both:
-    *   **[README.md](file:///home/cristina/Documentos/grabarPantalla/README.md)**: For user-facing features, GUI guides, CLI flags, configuration variables, installation steps, and test instructions.
-    *   **[PROYECTO.md](file:///home/cristina/Documentos/grabarPantalla/PROYECTO.md)**: For design specifications, architectural diagrams (Mermaid), and low-level FFmpeg parameters or codec rationale.
-2.  Maintain all docstrings and logging statements intact unless they are directly affected by the new code logic.
+This file defines the mandatory rules and guidelines that AI coding assistants (such as Gemini, AGY, Claude, Cursor, or Copilot) must follow when interacting with or making changes to this repository.
 
 ---
 
-## 🏗️ 2. Architectural Rules
-*   **Object-Oriented Programming (OOP)**: Keep the architecture object-oriented and components strictly decoupled.
-*   **Modular Constraints**: Every file should be single-purpose. Try to keep source files under **150 lines** to maintain readability and modularity.
-*   **Centralized Configuration**: All runtime settings, directory paths, codecs, framerates, qualities, and syncing offsets must live in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**. Do not hardcode values.
+## 🧪 1. Mandatory Test Execution & Test Creation (CRITICAL)
+
+1. **Always Run Full Test Suite**:
+   Whenever ANY code file is created, updated, or refactored, you MUST run the entire test suite using `pytest` inside the virtual environment:
+   ```bash
+   .venv/bin/pytest
+   ```
+   Do NOT claim a task is complete until 100% of the tests pass cleanly.
+
+2. **Always Create / Update Tests**:
+   * For **every new feature, bug fix, or code modification**, you MUST write or update the corresponding unit tests in the appropriate test module (`test_recorder.py`, `test_pipeline.py`, `test_handwritten_pipeline.py`, or a new `test_*.py` file).
+   * Ensure new components, methods, edge cases, and failure modes are properly covered by mocked or real unit tests.
 
 ---
 
-## ⚡ 3. Media Processing and Sync Guidelines
-*   **Dual Outputs**: The `MediaProcessor` in **[processor.py](file:///home/cristina/Documentos/grabarPantalla/processor.py)** must generate both an `.mp4` (video+audio) and a `.mp3` (standalone audio track) simultaneously with the same filename.
-*   **Audio/Video Sync**: To compensate for system startups (D-Bus screencast vs GStreamer/PipeWire audio), always respect and apply the `AUDIO_SYNC_OFFSET` variable using FFmpeg's `-itsoffset` flag.
-*   **Non-blocking Processing**: The GUI must run compression asynchronously in a background thread and report progress to the `Gtk.ProgressBar` in real-time. It must also warn the user if they try to close the window while a compression is active, allowing them to abort cleanly.
+## 🎨 2. PEP 8 Code Quality Standards
+
+All Python code MUST strictly adhere to **PEP 8** coding standards:
+* **Naming Conventions**: `snake_case` for functions, methods, and variables; `CamelCase` for classes; `UPPER_CASE` for constants.
+* **Line Length**: Limit all lines to a maximum of 120 characters.
+* **Imports**: Group imports at the top of the file (Standard library -> Third-party -> Local modules). Remove unused imports (`F401`).
+* **Blank Lines**: Maintain 2 blank lines around top-level functions and classes, and 1 blank line around class methods.
+* **Formatting Verification**: Verify PEP 8 compliance using `flake8`:
+  ```bash
+  .venv/bin/flake8 . --exclude=.venv,.temp,__pycache__,pipeline/__pycache__ --max-line-length=120
+  ```
 
 ---
 
-## 🧪 4. Testing and Verification
-*   Always run the unit test suite after making changes to the codebase:
-    ```bash
-    .venv/bin/python -m pytest test_recorder.py
-    ```
-*   Ensure that any modifications to `MediaProcessor` or `VideoRecorder` are covered by corresponding mocked unit tests in **[test_recorder.py](file:///home/cristina/Documentos/grabarPantalla/test_recorder.py)**.
+## 🛡️ 3. Static Security Analysis (Bandit)
+
+All Python code MUST pass static security analysis with **Bandit**:
+1. **Run Bandit Security Audit**:
+   ```bash
+   .venv/bin/bandit -r . -x ./.venv,./.temp,./__pycache__,pipeline/__pycache__ -ll
+   ```
+2. **Zero High/Medium Severity Issues**:
+   * No hardcoded passwords, tokens, or API keys outside `.gitignore`.
+   * Secure `subprocess` executions without string concatenated shell commands (`shell=True` forbidden with untrusted input).
+   * Secure temporary directory usages using `tempfile.gettempdir()`.
+   * If a legitimate false positive occurs (e.g. `0o755` permissions for Linux `.desktop` application launchers), annotate it explicitly with `# nosec <RULE_ID>` accompanied by an explanatory comment.
 
 ---
 
-## 🌍 5. Language Policy
-*   **English Only**: All source code, variable/class names, UI text, logs, console print messages, comments, commit messages, and documentation (`README.md`, `PROYECTO.md`, rules) must be written exclusively in **English**.
+## 📖 4. Documentation Integrity
+
+Whenever you introduce a new feature, change a configuration option, edit GUI tabs, or modify pipeline parameters:
+1. **Always update the documentation** in **[README.md](file:///home/cristina/Documentos/grabarPantalla/README.md)** (for user guides, GUI tabs, CLI flags, configuration variables, installation steps, and test instructions).
+2. Maintain all docstrings and logging statements intact unless directly affected by new code logic.
+
+---
+
+## 🏗️ 5. Architectural Rules & File Guidelines
+
+* **Object-Oriented Programming (OOP)**: Maintain an OOP architecture with decoupled components.
+* **Modular Constraints**: Every file should be single-purpose. Keep source files under **300 lines** for high maintainability.
+* **Centralized Configuration**:
+  * Recorder settings, paths, codecs, framerates, and sync offsets live in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**.
+  * LLM & Pipeline credentials and limits live in **[pipeline_config.py](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py)** (and its safe template **[pipeline_config.py.example](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py.example)**).
+
+---
+
+## 🌍 6. Language Policy
+
+* **English Only**: All source code, variable/class names, UI text, logs, console print messages, comments, commit messages, and documentation (`README.md`, `.cursorrules`, rules) must be written in **English**.

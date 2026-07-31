@@ -49,6 +49,19 @@ class VideoRecorder:
                 return False
         except Exception as e:
             logger.error(f"Error starting video recording: {e}")
+            if "AllPipelinesFailed" in str(e):
+                logger.info("GNOME Shell pipeline busy. Retrying GNOME Screencast start in 1.5 seconds...")
+                import time
+                time.sleep(1.5)
+                try:
+                    success, filename_used = self._screencast_iface.Screencast(self.filename_template, options)
+                    if success:
+                        self._is_recording = True
+                        self.recorded_file = str(filename_used)
+                        logger.info(f"Video recording started on retry. Saving to: {self.recorded_file}")
+                        return True
+                except Exception as retry_e:
+                    logger.error(f"Retry starting video recording failed: {retry_e}")
             return False
 
     def stop(self) -> str:
@@ -68,5 +81,7 @@ class VideoRecorder:
             logger.error(f"Error stopping video recording: {e}")
         finally:
             self._is_recording = False
+            import time
+            time.sleep(0.5)
             
         return self.recorded_file

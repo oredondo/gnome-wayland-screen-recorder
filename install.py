@@ -75,12 +75,14 @@ def install():
         print(f"  - Desktop directory not found. Creating: {desktop_dir}")
         os.makedirs(desktop_dir, exist_ok=True)
         
-    launcher_path = os.path.join(desktop_dir, "grabador-zoom.desktop")
-    
+    venv_python = os.path.join(script_dir, ".venv", "bin", "python")
+    python_bin = venv_python if os.path.exists(venv_python) else sys.executable
+
     desktop_entry = f"""[Desktop Entry]
 Name=Zoom & Screen Recorder
 Comment=Automatically record full screen or Zoom calls
-Exec=python3 {gui_path}
+Exec={python_bin} {gui_path}
+Path={script_dir}
 Icon=video-display
 Terminal=false
 Type=Application
@@ -94,7 +96,7 @@ StartupNotify=true
         print(f"  - Created file: {launcher_path}")
         
         # Make executable
-        os.chmod(launcher_path, 0o755)
+        os.chmod(launcher_path, 0o755)  # nosec B103
         print("  - Execution permissions granted.")
         
         # Trust the desktop file (removes warning in GNOME/Zorin OS)
@@ -114,7 +116,7 @@ StartupNotify=true
         with open(menu_launcher_path, "w") as f:
             f.write(desktop_entry)
         print(f"  - Created menu shortcut: {menu_launcher_path}")
-        os.chmod(menu_launcher_path, 0o755)
+        os.chmod(menu_launcher_path, 0o755)  # nosec B103
     except Exception as e:
         print(f"  - [ERROR] Failed to create menu shortcut: {e}")
         

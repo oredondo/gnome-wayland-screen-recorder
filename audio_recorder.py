@@ -60,6 +60,15 @@ class AudioRecorder:
             
         mic, mon = self._discover_devices()
         
+        # Fallback to PulseAudio/PipeWire default devices if dynamic discovery returned None
+        if mon is None:
+            mon = "@DEFAULT_SINK@.monitor"
+            logger.info(f"Using default speaker monitor fallback: '{mon}'")
+            
+        if mic is None and config.RECORD_MICROPHONE:
+            mic = "@DEFAULT_SOURCE@"
+            logger.info(f"Using default microphone fallback: '{mic}'")
+        
         # Check config to see if microphone is enabled
         record_mic = config.RECORD_MICROPHONE and mic is not None
         record_mon = mon is not None

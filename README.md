@@ -1,175 +1,330 @@
-# Zoom & Screen Recorder for Linux (Wayland / GNOME)
+# Zoom & Screen Recorder for Linux (Wayland / GNOME) + EIR Notes & Handwritten Notes Pipeline
 
-A lightweight, high-efficiency screen and system audio recorder for Linux (GNOME/Wayland). This modular Python application features both an automatic recording daemon that triggers upon detecting Zoom calls, and a native Graphical User Interface (GUI) for manual full-screen capture. It applies advanced post-processing compression settings to ensure maximum text and slide readability while using minimal disk space.
+A lightweight, high-efficiency screen and system audio recorder for Linux (GNOME/Wayland) integrated with AI pipelines to generate structured **EIR study notes** (`apuntes_EIR.md`), **Anki flashcards** (`anki_cards.csv`), and **digitized handwritten note photographs** into Markdown with zero invention.
+
+---
+
+## 🎯 Project Goals & Overview
+
+Build a multi-purpose automation utility tailored for Linux desktop environments (GNOME with Wayland or X11) such as Zorin OS or Ubuntu:
+
+1. **High-Efficiency Screen & Audio Recorder**:
+   * **Automatic Daemon Mode (Zoom)**: Silently polls system windows in the background. When it detects an active Zoom meeting window, it automatically initiates full-screen recording and mixes speaker output (and optional microphone). It saves and compresses the files once the meeting closes.
+   * **Manual Recording Mode**: Immediately records full-screen video and system audio, running indefinitely until manually stopped via terminal or GTK 3 GUI.
+   * **Optimized Compression**: Applies tuned H.264 parameters (10 FPS, CRF 24, stillimage tune) ensuring text, code, and presentation slides remain sharp while minimizing disk space. It also generates a standalone MP3 audio track.
+
+2. **EIR Notes & Flashcards Generation Pipeline**:
+   * **Multimodal Extraction**: Extracts text from presentation slides via Tesseract OCR and transcribes audio via `faster-whisper`.
+   * **AI Orchestration (LangGraph)**: Processes recordings in 30-minute time windows through a multi-node graph (Consolidation -> Segmentation -> Parallel Generation of EIR Markdown Notes & Anki CSV Flashcards).
+   * **Refinement & Anti-Hallucination**: Executes an editorial refinement pass that unifies class blocks, deduplicates flashcards, and enforces strict rules to prevent fake NANDA/NIC/NOC nursing codes or unverified medical scales.
+
+3. **Handwritten Notes Digitization Pipeline**:
+   * **Photographic Extraction**: Preprocesses handwritten note photos (CLAHE contrast enhancement, grayscale filtering via OpenCV) and performs multi-language Tesseract OCR.
+   * **Zero-Invention Policy**: Strictly forbids inventing, inferring, or adding facts, definitions, or dates not present in the original photos.
+   * **Faithful Graphic Rendering**: Translates handwritten layouts into Markdown with headings, bullet lists, Markdown comparison tables, LaTeX mathematical formulas ($...$), and Mermaid diagrams (```mermaid ...) for hand-drawn schemas.
+
+---
+
+## 📑 Business and Technical Requirements
+
+### 1. Recorder Life Cycle Automation and Control
+* **Automatic Start/Stop**: Trigger recording immediately when a Zoom call starts, finalize when the call ends.
+* **Graceful Interrupts**: Signal handlers (`SIGINT` / `SIGTERM` / close events) ensure cached temp data is safely merged and processed to prevent file corruption.
+
+### 2. File Naming & Directory Organization
+* Video & Audio files: Saved as `YYYYMMDD_HHMM.mp4` and `YYYYMMDD_HHMM.mp3` in `OUTPUT_DIR`.
+* Study Notes & Anki Flashcards: Saved under `OUTPUT_DIR/apuntes/YYYYMMDD_HHMM/` (`apuntes_EIR.md`, `anki_cards.csv`, and raw text files under `bruto/`).
+* Handwritten Notes: Saved under `OUTPUT_DIR/apuntes_manuscritos/YYYYMMDD_HHMM_manuscrito.md` and raw text files under `bruto/`.
+
+### 3. High Quality, Low Memory & Compression
+* **Readability**: Video compression tuned for slide sharing (10 FPS, H.264 stillimage).
+* **Anti-OOM Audio Chunking**: Long audio files are split into 30-minute chunks via FFmpeg stream copy to maintain RAM usage under 1 GB during Whisper transcription.
+
+### 4. Code Architecture & Desktop Integration
+* **GTK 3 Graphical Interface**: 3-Tab GUI for screen recording ("Grabador"), study note generation ("Apuntes EIR"), and handwritten notes ("Manuscritos").
+* **Modular OOP Design**: Decoupled Python modules under 300 lines for high maintainability.
+* **Credentials Security**: Sensitive LLM credentials stored in `pipeline_config.py` (excluded from version control, see `pipeline_config.py.example`).
+
+---
+
+## 🏗️ Architectural and Engineering Decisions
+
+```mermaid
+graph TD
+    subgraph UI & Orchestration
+        A1["main.py: ZoomRecorderApp"] --> B["detector.py: ZoomDetector"]
+        A1 --> C["video_recorder.py: VideoRecorder"]
+        A1 --> D["audio_recorder.py: AudioRecorder"]
+        A1 --> E["processor.py: MediaProcessor"]
+        
+        A2["gui.py: ZoomRecorderGUI"] --> B
+        A2 --> C
+        A2 --> D
+        A2 --> E
+        A2 --> F["pipeline/generate_notes.py: NotesGenerator"]
+        A2 --> G["pipeline/handwritten_notes.py: HandwrittenNotesGenerator"]
+    end
+
+    subgraph Screen & Audio Recording
+        C -->|D-Bus| H["GNOME Shell Screencast API"]
+        D -->|GStreamer| I["PipeWire / PulseAudio Mixer"]
+        E -->|Subprocess| J["FFmpeg Encoder"]
+        
+        H -->|Creates| K["video_temp.webm"]
+        I -->|Creates| L["audio_temp.ogg"]
+        J -->|Merges & Compresses| M["Timestamp.mp4 & Timestamp.mp3"]
+    end
+
+    subgraph EIR Notes & Anki Pipeline
+        M --> F
+        F --> N["pipeline/ocr.py: VideoOCRExtractor"]
+        F --> O["pipeline/transcription.py: AudioTranscriber"]
+        
+        N -->|Tesseract + Crop 25%| P["ocr_bruto.txt"]
+        O -->|faster-whisper int8| Q["transcripcion_bruto.txt"]
+        
+        P & Q --> R["pipeline/graph.py: EIRNotesGraph"]
+        R --> S["Consolidate Node"]
+        S --> T["Segment Node"]
+        T --> U["Generate Notes Node"]
+        T --> V["Generate Anki Node"]
+        
+        U & V --> W["Editorial Refinement Pass"]
+        W --> X["apuntes_EIR.md & anki_cards.csv"]
+    end
+
+    subgraph Handwritten Notes Pipeline
+        Y["Note Photographs"] --> G
+        G --> Z["HandwrittenOCRExtractor: OpenCV CLAHE + Tesseract"]
+        Z --> AA["ocr_manuscrito_bruto.txt"]
+        AA --> AB["LLMManager: Zero-Invention Prompt"]
+        AB --> AC["YYYYMMDD_HHMM_manuscrito.md"]
+    end
+```
+
+### 1. Wayland Desktop Capture Rationale
+* **Decision**: GNOME Shell Screencast D-Bus API (`org.gnome.Shell.Screencast`).
+* **Why**: Traditional X11 grabbers produce black screens on Wayland, while XDG Desktop Portals prompt permission popups on every launch. The GNOME Screencast D-Bus API allows silent, high-performance recording directly from the compositor.
+
+### 2. Audio Capture and Dynamic Mixing
+* **Decision**: GStreamer pipeline using `pulsesrc` and optional `audiomixer` configured dynamically via `GstDeviceMonitor`.
+* **Why**: Captures system speaker output (other call participants) combined with an optional local microphone track into an Opus-compressed Ogg container.
+
+### 3. Video Encoding Parameters (FFmpeg)
+| Parameter | Value | Technical Justification |
+| :--- | :--- | :--- |
+| **Output FPS** | `10 fps` | Reduces frame rate to cut redundant slide frames, saving up to 70% disk space with zero loss in readability. |
+| **Video Codec** | `libx264` | Maximum compatibility across all web browsers and video players. |
+| **Quality (CRF)** | `24` | Dynamic bitrate allocation (stays near zero for static slides). |
+| **Encoding Tune** | `stillimage` | Prevents compression artifacts around text and code on slides. |
+| **Encoding Preset**| `medium` | Optimal balance between encoding speed and file size. |
+| **Audio Codec (MP4)** | `AAC at 96k` | Speech-optimized audio inside the video container. |
+| **Standalone MP3** | `MP3 at 128k` | High-compatibility audio file generated alongside MP4. |
+
+### 4. OCR Slide Extraction Tuning
+* **Webinar Chat Crop**: Crops the right 25% of video frames (`OCR_CROP_RIGHT = 0.25`) to prevent capturing webinar chat conversations.
+* **Thumbnail Similarity Filter**: Compares a reduced 16x16 pixel thumbnail between frames; if unchanged, Tesseract execution is skipped.
+* **Regex UI Cleaning**: Filters out Zoom floating controls (*"Audio Settings"*, *"Chat"*, etc.) from slide text.
+
+### 5. Handwritten Notes Pipeline Engineering
+* **OpenCV CLAHE Preprocessing**: Adaptive histogram equalization and contrast tuning to clean pen/pencil strokes on paper before OCR.
+* **Zero-Invention Policy**: System prompt strictly forbids inventing, inferring, or adding facts, definitions, or dates not explicitly present in the note photographs.
+* **Faithful Graphic Translation**: Converts handwritten diagrams into Mermaid blocks, handwritten tables into Markdown Tables, and mathematical formulas into LaTeX (`$...$`).
+
+### 6. Audio Transcription & Memory Safety
+* **Engine**: `faster-whisper` with `int8` CPU quantization and VAD silence filtering.
+* **Anti-OOM Chunking**: Automatically splits long audio into 30-minute files before Whisper processing to ensure RAM consumption remains under 1 GB.
 
 ---
 
 ## 📂 Project Directory Structure
 
-The project is designed with a clean, modular, and decoupled Object-Oriented structure:
+The project follows a clean, modular, and decoupled Object-Oriented structure:
 
-*   **[main.py](file:///home/cristina/Documentos/grabarPantalla/main.py)**: The main terminal orchestrator (`ZoomRecorderApp`) running the Zoom polling loop and daemon.
-*   **[gui.py](file:///home/cristina/Documentos/grabarPantalla/gui.py)**: The native GTK 3 Graphical User Interface (GUI) to visually trigger recordings, select modes, and monitor elapsed time.
-*   **[install.py](file:///home/cristina/Documentos/grabarPantalla/install.py)**: The installation script that configures the launcher shortcut on your Desktop and Applications menu.
-*   **[detector.py](file:///home/cristina/Documentos/grabarPantalla/detector.py)**: The `ZoomDetector` module using `xwininfo` to inspect active Zoom windows.
-*   **[video_recorder.py](file:///home/cristina/Documentos/grabarPantalla/video_recorder.py)**: The `VideoRecorder` module interacting with GNOME Shell's Screencast D-Bus API.
-*   **[audio_recorder.py](file:///home/cristina/Documentos/grabarPantalla/audio_recorder.py)**: The `AudioRecorder` module capturing and mixing microphone and/or speakers audio using GStreamer.
-*   **[processor.py](file:///home/cristina/Documentos/grabarPantalla/processor.py)**: The `MediaProcessor` module executing FFmpeg for media merging and compression.
-*   **[recover.py](file:///home/cristina/Documentos/grabarPantalla/recover.py)**: A recovery script to manually merge and compress leftover temp files if the recorder was interrupted.
-*   **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**: The central configuration file managing paths, codecs, qualities, and polling timeouts.
-*   **[PROYECTO.md](file:///home/cristina/Documentos/grabarPantalla/PROYECTO.md)**: Technical design and architectural documentation.
+### Core Recorder Modules
+* **[main.py](file:///home/cristina/Documentos/grabarPantalla/main.py)**: Terminal orchestrator (`ZoomRecorderApp`) for Zoom daemon polling and manual recording CLI.
+* **[gui.py](file:///home/cristina/Documentos/grabarPantalla/gui.py)**: Native GTK 3 Graphical User Interface featuring 3 tabs: **Grabador** (Screen recording), **Apuntes EIR** (AI notes & Anki generation), and **Manuscritos** (Handwritten note photo digitization).
+* **[install.py](file:///home/cristina/Documentos/grabarPantalla/install.py)**: Installation script configuring launcher shortcuts on Desktop and system applications menu targeting `.venv`.
+* **[detector.py](file:///home/cristina/Documentos/grabarPantalla/detector.py)**: `ZoomDetector` module using `xwininfo` to detect active Zoom meeting windows.
+* **[video_recorder.py](file:///home/cristina/Documentos/grabarPantalla/video_recorder.py)**: `VideoRecorder` module interacting with GNOME Shell Screencast D-Bus API.
+* **[audio_recorder.py](file:///home/cristina/Documentos/grabarPantalla/audio_recorder.py)**: `AudioRecorder` module capturing and mixing microphone and speaker audio via GStreamer.
+* **[processor.py](file:///home/cristina/Documentos/grabarPantalla/processor.py)**: `MediaProcessor` module executing FFmpeg for media merging, 10 FPS CRF compression, and MP3 extraction.
+* **[recover.py](file:///home/cristina/Documentos/grabarPantalla/recover.py)**: Recovery script to manually merge leftover temp files if recording was interrupted.
+* **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**: Central configuration file for recorder paths, codecs, quality, and polling timeouts.
+
+### EIR AI Notes & Flashcards Pipeline (`pipeline/`)
+* **[pipeline/generate_notes.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/generate_notes.py)**: NotesGenerator orchestrator executing OCR, transcription, 30-min chunk processing, and editorial refinement.
+* **[pipeline/handwritten_notes.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/handwritten_notes.py)**: `HandwrittenNotesGenerator` module for digitalizing handwritten note photographs into structured Markdown files with a zero-invention policy.
+* **[pipeline/ocr.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/ocr.py)**: `VideoOCRExtractor` using OpenCV and Tesseract OCR with right-chat cropping and UI filtering.
+* **[pipeline/transcription.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/transcription.py)**: `AudioTranscriber` utilizing `faster-whisper` (int8) with anti-OOM audio chunking.
+* **[pipeline/graph.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/graph.py)**: LangGraph state graph defining consolidation, segmentation, and parallel note/Anki generation nodes.
+* **[pipeline/llm_manager.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/llm_manager.py)**: Wrapper interface for OpenAI-compatible LLM endpoints (`ChatOpenAI`).
+* **[pipeline/prompts.py](file:///home/cristina/Documentos/grabarPantalla/pipeline/prompts.py)**: Centralized system prompts with anti-hallucination and zero-invention rules.
+* **[pipeline_config.py.example](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py.example)**: Safe configuration template file for LLM API keys, base URLs, model selection, OCR crop parameters, and chunking limits.
+
+### Tests
+* **[test_recorder.py](file:///home/cristina/Documentos/grabarPantalla/test_recorder.py)**: Unit test suite for screen recording, window detection, and FFmpeg execution.
+* **[test_pipeline.py](file:///home/cristina/Documentos/grabarPantalla/test_pipeline.py)**: Unit test suite for OCR extraction, audio transcription, LLM graph, and notes generator.
+* **[test_handwritten_pipeline.py](file:///home/cristina/Documentos/grabarPantalla/test_handwritten_pipeline.py)**: Unit test suite for handwritten notes extraction and zero-invention Markdown generation.
 
 ---
 
-## 🛠️ Prerequisites and Installation
+## 🛠️ Prerequisites and Virtual Environment Setup
 
-To allow D-Bus communication with GNOME, audio capture via PipeWire/PulseAudio, and final video compression, system dependencies must be installed on your machine.
-
-### 1. Recommended Installation (System Package Manager)
-On Debian, Ubuntu, or Zorin OS distributions, it is highly recommended to install the pre-packaged Python libraries directly using `apt` (this avoids compile steps):
+### 1. System Dependencies (Debian / Ubuntu / Zorin OS)
+Install required system libraries for GNOME D-Bus, audio capture, FFmpeg, window detection, and Tesseract OCR:
 
 ```bash
 sudo apt update
-sudo apt install python3-dbus python3-gi gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad ffmpeg x11-utils
+sudo apt install python3-dbus python3-gi gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad ffmpeg x11-utils tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng xclip wl-clipboard
 ```
 
-### 2. Alternative Installation (Pip and requirements.txt)
-If you prefer running inside a virtual environment (`venv`) or installing packages via `pip`, use the **[requirements.txt](file:///home/cristina/Documentos/grabarPantalla/requirements.txt)** file.
+### 2. Python Virtual Environment (`.venv`)
+Always use `--system-site-packages` so Python can access system GTK 3 (`gi`) and D-Bus bindings:
 
-Because `dbus-python` and `PyGObject` compile native C extensions, you have two options to manage them:
-
-#### Method A: Reusing System Packages (Easiest)
-Create a virtual environment that inherits globally installed system packages. This bypasses the need for compiling anything:
-1. Install system bindings:
-   ```bash
-   sudo apt install python3-dbus python3-gi
-   ```
-2. Create the virtual environment using `--system-site-packages`:
-   ```bash
-   python3 -m venv --system-site-packages .venv
-   ```
-3. Activate the environment and run the script.
-
-#### Method B: Installing Build Tools
-If you want a fully isolated virtual environment and compile the libraries within it, you must install the build compiler (`gcc`, `make`), Python development headers, and system development packages first:
 ```bash
-sudo apt update
-sudo apt install build-essential python3-dev libdbus-1-dev libglib2.0-dev
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
 ```
-Then run the standard pip command:
+
+Install Python dependencies inside `.venv`:
+
 ```bash
 pip install -r requirements.txt
+pip install -r pipeline/requirements_pipeline.txt
 ```
+
+> **Note**: Both `gui.py`, `main.py`, and `pipeline/__init__.py` automatically detect and inject `.venv` site-packages into `sys.path`, so running scripts directly will transparently use `.venv` packages.
 
 ---
 
-## 🖥️ Graphical User Interface (GUI) & Desktop Icon
+## 🖥️ Graphical User Interface (GUI) & Desktop Launcher
 
-If you prefer a visual window with buttons and a real-time recording timer, you can use the native **GTK 3** GUI.
+The native **GTK 3** application features a 3-tab window.
 
-### 1. Install the Desktop and Menu Shortcuts
-We have included an installer script that creates a launcher icon on your Desktop and indexes the application into Zorin OS/GNOME application search.
+### 1. Install Desktop & Menu Shortcuts
+Run the installer script to create desktop and application menu shortcuts configured to run under `.venv`:
 
-Run the installer:
 ```bash
 python3 install.py
 ```
 
-This creates the **Zoom & Screen Recorder** launcher in:
-*   Your **Desktop** (`~/Escritorio/grabador-zoom.desktop`).
-*   Your **Applications Menu** (system app grid).
+### 2. Launch the GUI
+Double-click the **Zoom & Screen Recorder** icon on your desktop or run via terminal:
 
-### 2. Run the GUI
-Double-click the **Zoom & Screen Recorder** desktop icon, search for it in your application grid, or launch it via the terminal:
 ```bash
 python3 gui.py
 ```
 
-*   **GUI Usage**:
-    *   **Select Mode**: Choose "Automatic" to wait for Zoom meetings in the background, or "Manual" to capture full screen immediately.
-    *   **Record**: Click the suggested **Record** button (highlights in green/blue) to start. The digital timer will count elapsed time in `HH:MM:SS`.
-    *   **Stop**: Click the **Stop** button (red). Recording stops instantly, and compression processes asynchronously in a background thread.
-        *   **Real-time Progress**: A progress bar will appear, showing the exact encoding percentage (e.g. `Compressing... 45%`) relative to the recording's length.
-        *   **Exit Protection**: If you close the app or cancel while compression is active, a warning dialog will prevent accidental data loss. You can choose to wait or force exit (which safely aborts FFmpeg to prevent background leaks).
+### 3. Interface Tabs
+* **Tab 1: Grabador**:
+  * **Select Mode**: Choose "Automatic (Detect Zoom)" to monitor calls in the background, or "Manual" for immediate full-screen capture.
+  * **Record & Stop**: Click **Record** to start (timer displays `HH:MM:SS`). Click **Stop** to halt recording; compression processes asynchronously with a progress percentage bar.
+* **Tab 2: Apuntes EIR**:
+  * **File Selectors**: Choose video (`.mp4`) file; matching audio (`.mp3`) is automatically inferred and selected.
+  * **Anki Checkbox**: Enable or disable generating study flashcards CSV.
+  * **Generar Apuntes y Anki**: Starts background worker thread with real-time status updates (`OCR Extraction...`, `Transcribing Audio...`, `Executing LangGraph...`).
+* **Tab 3: Manuscritos**:
+  * **Photo Selector**: Choose one or multiple photographs (`.jpg`, `.png`, `.webp`...) of handwritten notes.
+  * **Generar Markdown Manuscrito**: Starts background worker thread performing CLAHE OpenCV contrast enhancement, Tesseract OCR, and faithful zero-invention Markdown conversion.
 
 ---
 
 ## 🚀 Running via Terminal (CLI Mode)
 
-1.  Open terminal and navigate to the project directory:
-    ```bash
-    cd /home/cristina/Documentos/grabarPantalla
-    ```
-2.  Start the application:
-    ```bash
-    python3 main.py
-    ```
-3.  **Mode Prompts**:
-    *   You will be asked to choose between **1** (Automatic Zoom daemon) or **2** (Immediate manual full screen).
-4.  **CLI Command Line Flags (Shortcuts)**:
-    *   Skip the prompt and start in **Automatic Zoom** daemon mode directly:
-        ```bash
-        python3 main.py --auto     # or -a
-        ```
-    *   Skip the prompt and start in **Manual Full Screen** recording immediately:
-        ```bash
-        python3 main.py --manual   # or -m
-        ```
-5.  **Graceful Exit**:
-    *   Press `Ctrl + C` to stop the script safely. If a recording is actively running, it will automatically save and process the media before exiting to prevent file corruption.
+### Screen & Audio Recorder CLI
+Launch the recorder interactive terminal menu or use shortcuts:
+
+```bash
+# Interactive mode
+python3 main.py
+
+# Automatic Zoom Daemon direct start
+python3 main.py --auto     # or -a
+
+# Manual Full Screen Recording direct start
+python3 main.py --manual   # or -m
+```
+
+### EIR Notes & Flashcards Pipeline CLI
+Generate study notes directly from terminal:
+
+```bash
+# Basic usage (auto-detects matching .mp3 audio)
+python3 pipeline/generate_notes.py --video /home/cristina/Documentos/Zoom/20260725_1000.mp4
+
+# Custom audio path and skip Anki cards
+python3 pipeline/generate_notes.py --video video.mp4 --audio audio.mp3 --no-anki
+```
+
+### Handwritten Notes Digitization CLI
+Digitalize handwritten note photos directly from terminal:
+
+```bash
+# Specify image files directly
+python3 pipeline/handwritten_notes.py --images foto1.jpg foto2.jpg foto3.jpg
+
+# Specify a directory containing note photos
+python3 pipeline/handwritten_notes.py --dir /home/cristina/Imágenes/Apuntes
+```
 
 ---
 
 ## ⚙️ Custom Configurations
 
-All variables are centralized in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**. You can open and edit it to change paths, qualities, and behaviors:
+### 1. Screen Recorder Configuration (`config.py`)
+Edit [config.py](file:///home/cristina/Documentos/grabarPantalla/config.py) to set video output directories, frame rates, and audio parameters:
 
 ```python
-# Output folder for final MP4 videos and MP3 audios
 OUTPUT_DIR = "/home/cristina/Documentos/Zoom"
-
-# Frame rate for video files (10 FPS keeps files tiny while maintaining readability)
 VIDEO_FRAMERATE = 10
-
-# Constant Rate Factor (CRF: 18-28. Higher means more compression)
 VIDEO_CRF = 24
-
-# Encoding preset (medium provides the best balance of speed and file size)
 VIDEO_PRESET = "medium"
-
-# Audio synchronization offset in seconds (delays audio to align with video start)
 AUDIO_SYNC_OFFSET = 0.2
-
-# Audio bitrate for the standalone MP3 output file
-AUDIO_MP3_BITRATE = "128k"
-
-# Set to True if you want to record your own microphone along with speaker audio
 RECORD_MICROPHONE = False
+```
+
+### 2. Pipeline Configuration (`pipeline_config.py`)
+Copy [pipeline_config.py.example](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py.example) to `pipeline_config.py` and set your credentials:
+
+```python
+cp pipeline_config.py.example pipeline_config.py
+```
+
+Edit `pipeline_config.py`:
+
+```python
+API_BASE_URL = "https://leria.gal/api"
+API_KEY = "your-api-key"
+MODEL_NAME = "leria:redacta"
+
+OCR_CROP_RIGHT = 0.25      # Crop right 25% of screen (ignores Zoom chat)
+OCR_CHUNK_MINUTES = 30     # Process long classes in 30-min windows
+WHISPER_MODEL = "base"     # Whisper model size ('tiny', 'base', 'small', 'medium')
+GENERATE_ANKI = True       # Enable Anki generation by default
 ```
 
 ---
 
----
+## 🧪 Running Unit Tests & Quality Audits
 
-## 🧪 Running Unit Tests
+Run the full pytest suite, security audit (Bandit), and PEP 8 linting (Flake8):
 
-We have included a comprehensive unit test suite utilizing **pytest** to verify the core logic of window detection, D-Bus recording commands, and FFmpeg parameter mapping without needing real recordings or external hardware.
+```bash
+# 1. Run unit test suite (15 tests)
+.venv/bin/pytest
 
-To run the tests:
-1.  Ensure you have development dependencies installed:
-    ```bash
-    pip install pytest
-    # or install via requirements.txt
-    pip install -r requirements.txt
-    ```
-2.  Run the tests using the following command in the project root:
-    ```bash
-    pytest test_recorder.py
-    ```
+# 2. Run Bandit static security audit
+.venv/bin/bandit -r . -x ./.venv,./.temp,./__pycache__,pipeline/__pycache__ -ll
+
+# 3. Check PEP 8 code formatting
+.venv/bin/flake8 . --exclude=.venv,.temp,__pycache__,pipeline/__pycache__ --max-line-length=120
+```
+
+See [TESTING_AND_QUALITY_RULES.md](file:///home/cristina/Documentos/grabarPantalla/TESTING_AND_QUALITY_RULES.md) and [.cursorrules](file:///home/cristina/Documentos/grabarPantalla/.cursorrules) for detailed project testing, security, and PEP 8 guidelines.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. See the **[LICENSE](file:///home/cristina/Documentos/grabarPantalla/LICENSE)** file for legal terms.
-
+This project is licensed under the **MIT License**. See [LICENSE](file:///home/cristina/Documentos/grabarPantalla/LICENSE) for legal terms.
