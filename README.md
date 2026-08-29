@@ -23,6 +23,12 @@ Build a multi-purpose automation utility tailored for Linux desktop environments
    * **Zero-Invention Policy**: Strictly forbids inventing, inferring, or adding facts, definitions, or dates not present in the original photos.
    * **Faithful Graphic Rendering**: Translates handwritten layouts into Markdown with headings, bullet lists, Markdown comparison tables, LaTeX mathematical formulas ($...$), and Mermaid diagrams (```mermaid ...) for hand-drawn schemas.
 
+4. **Voice Dictation Notes Pipeline**:
+   * **Speech-to-Text Transcription**: Transcribes student voice dictation audio files (`.wav`, `.mp3`, `.flac`, `.ogg`) directly using local offline Whisper IA (`faster-whisper`).
+   * **Noise & Silence Filtering**: Automatically filters out ambient background noise (FFT denoiser `afftdn` + speech bandpass 100Hz-4000Hz) and strips pauses (`silenceremove`).
+   * **Ultra-Light MP3 Encoding**: Compresses speech audio down to mono 32 kbps (22.05 kHz) for minimal file size.
+   * **AI Formatting & Structuring**: Cleans phonetic errors/hesitation words and structures the dictation into formatted Markdown study notes.
+
 ---
 
 ## 📑 Business and Technical Requirements
@@ -33,16 +39,18 @@ Build a multi-purpose automation utility tailored for Linux desktop environments
 
 ### 2. File Naming & Directory Organization
 * Video & Audio files: Saved as `YYYYMMDD_HHMM.mp4` and `YYYYMMDD_HHMM.mp3` in `OUTPUT_DIR`.
-* Study Notes & Anki Flashcards: Saved under `OUTPUT_DIR/apuntes/YYYYMMDD_HHMM/` (`apuntes_EIR.md`, `anki_cards.csv`, and raw text files under `bruto/`).
-* Handwritten Notes: Saved under `OUTPUT_DIR/apuntes_manuscritos/YYYYMMDD_HHMM_manuscrito.md` and raw text files under `bruto/`.
+* Study Notes & Anki Flashcards: Saved under `OUTPUT_DIR/apuntes/` (`apuntes_EIR.md` and `apuntes_EIR.docx`, `anki_cards.csv`, and raw text/docx files under `bruto/`).
+* Handwritten Notes: Saved under `OUTPUT_DIR/apuntes_manuscritos/` (`YYYYMMDD_HHMM_manuscrito.md` and `YYYYMMDD_HHMM_manuscrito.docx`, and raw text/docx files under `bruto/`).
+* Voice Dictation Notes: Saved under `OUTPUT_DIR/apuntes_dictados/` (`YYYYMMDD_HHMM_dictado.md` and `YYYYMMDD_HHMM_dictado.docx`, and raw text/docx files under `bruto/`).
+* Automatic DOCX Export: Every generated `.md` or `.txt` file automatically generates its corresponding Word `.docx` file preserving headers, bolding, lists, and code blocks.
 
 ### 3. High Quality, Low Memory & Compression
 * **Readability**: Video compression tuned for slide sharing (10 FPS, H.264 stillimage).
 * **Anti-OOM Audio Chunking**: Long audio files are split into 30-minute chunks via FFmpeg stream copy to maintain RAM usage under 1 GB during Whisper transcription.
 
 ### 4. Code Architecture & Desktop Integration
-* **GTK 3 Graphical Interface**: 3-Tab GUI for screen recording ("Grabador"), study note generation ("Apuntes EIR"), and handwritten notes ("Manuscritos").
-* **Modular OOP Design**: Decoupled Python modules under 300 lines for high maintainability.
+* **GTK 3 Graphical Interface**: 4-Tab modular GUI for screen recording ("Grabador"), study note generation ("Apuntes EIR"), handwritten notes ("Manuscritos"), and voice dictation ("Dictado").
+* **Modular OOP Design**: Decoupled Python modules under 200 lines organized in packages (`gui_components/`).
 * **Credentials Security**: Sensitive LLM credentials stored in `pipeline_config.py` (excluded from version control, see `pipeline_config.py.example`).
 
 ---

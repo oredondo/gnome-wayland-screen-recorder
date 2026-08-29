@@ -67,56 +67,74 @@ def install():
     # Create Desktop Launcher
     print("\n[2/3] Creating Desktop launcher...")
     
+    # Install icons to user theme directory
+    icons_dir_png = os.path.expanduser("~/.local/share/icons/hicolor/256x256/apps")
+    icons_dir_svg = os.path.expanduser("~/.local/share/icons/hicolor/scalable/apps")
+    os.makedirs(icons_dir_png, exist_ok=True)
+    os.makedirs(icons_dir_svg, exist_ok=True)
+
+    src_png = os.path.join(script_dir, "assets", "icon_256.png")
+    src_svg = os.path.join(script_dir, "assets", "icon.svg")
+
+    if os.path.exists(src_png):
+        shutil.copy(src_png, os.path.join(icons_dir_png, "zoom-screen-recorder.png"))
+    if os.path.exists(src_svg):
+        shutil.copy(src_svg, os.path.join(icons_dir_svg, "zoom-screen-recorder.svg"))
+
     desktop_dir_es = os.path.expanduser("~/Escritorio")
     desktop_dir_en = os.path.expanduser("~/Desktop")
-    
     desktop_dir = desktop_dir_es if os.path.exists(desktop_dir_es) else desktop_dir_en
     if not os.path.exists(desktop_dir):
         print(f"  - Desktop directory not found. Creating: {desktop_dir}")
         os.makedirs(desktop_dir, exist_ok=True)
-        
+
+    launcher_path = os.path.join(desktop_dir, "zoom-screen-recorder.desktop")
     venv_python = os.path.join(script_dir, ".venv", "bin", "python")
     python_bin = venv_python if os.path.exists(venv_python) else sys.executable
 
+    icon_ref = src_png if os.path.exists(src_png) else "zoom-screen-recorder"
+
     desktop_entry = f"""[Desktop Entry]
-Name=Zoom & Screen Recorder
-Comment=Automatically record full screen or Zoom calls
+Name=Grabador y Apuntes EIR
+Comment=Grabador de pantalla, dictados y generador de apuntes e tarjetas Anki con IA
 Exec={python_bin} {gui_path}
 Path={script_dir}
-Icon=video-display
+Icon={icon_ref}
 Terminal=false
 Type=Application
-Categories=Utility;AudioVideo;
+Categories=Utility;AudioVideo;Education;
 StartupNotify=true
+StartupWMClass=zoom-screen-recorder
 """
-    
+
     try:
         with open(launcher_path, "w") as f:
             f.write(desktop_entry)
         print(f"  - Created file: {launcher_path}")
-        
+
         # Make executable
         os.chmod(launcher_path, 0o755)  # nosec B103
         print("  - Execution permissions granted.")
-        
+
         # Trust the desktop file (removes warning in GNOME/Zorin OS)
         subprocess.run(["gio", "set", launcher_path, "metadata::trusted", "yes"], stderr=subprocess.DEVNULL)
         print("  - Marked launcher as trusted in the system.")
-        
+
     except Exception as e:
         print(f"  - [ERROR] Failed to create launcher on Desktop: {e}")
-        
+
     # Create Applications Menu Entry
     print("\n[3/3] Adding application to the system menu...")
     menu_dir = os.path.expanduser("~/.local/share/applications")
     os.makedirs(menu_dir, exist_ok=True)
-    menu_launcher_path = os.path.join(menu_dir, "grabador-zoom.desktop")
-    
+    menu_launcher_path = os.path.join(menu_dir, "zoom-screen-recorder.desktop")
+
     try:
         with open(menu_launcher_path, "w") as f:
             f.write(desktop_entry)
         print(f"  - Created menu shortcut: {menu_launcher_path}")
         os.chmod(menu_launcher_path, 0o755)  # nosec B103
+        subprocess.run(["gtk-update-icon-cache", os.path.expanduser("~/.local/share/icons/hicolor")], stderr=subprocess.DEVNULL)
     except Exception as e:
         print(f"  - [ERROR] Failed to create menu shortcut: {e}")
         

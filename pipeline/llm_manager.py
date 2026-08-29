@@ -14,18 +14,23 @@ logger = logging.getLogger(__name__)
 class LLMManager:
     """Manages connection and query execution to the custom OpenAI-compatible API using LangChain."""
     
-    def __init__(self, temperature: float = 0.0):
+    def __init__(self, temperature: float = None):
         # Verify configuration
         if not getattr(pipeline_config, "API_KEY", None):
             raise ValueError("API_KEY not found in pipeline_config.py")
-            
-        logger.info(f"Connecting to LLM server at {pipeline_config.API_BASE_URL} using model '{pipeline_config.MODEL_NAME}' (temperature={temperature})...")
-        
+
+        if temperature is None:
+            temperature = getattr(pipeline_config, "LLM_TEMPERATURE", 0.3)
+
+        self.temperature = temperature
+        logger.info(f"Connecting to LLM server at {pipeline_config.API_BASE_URL} using model '{pipeline_config.MODEL_NAME}' (temperature={self.temperature})...")
+
         self.llm = ChatOpenAI(
             openai_api_base=pipeline_config.API_BASE_URL,
             openai_api_key=pipeline_config.API_KEY,
             model_name=pipeline_config.MODEL_NAME,
-            temperature=temperature # Deterministic temperature 0.0 to prevent hallucinations
+            temperature=self.temperature,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}}
         )
         
     def process_node(self, system_prompt: str, user_content: str, max_retries: int = 3) -> str:
@@ -41,7 +46,9 @@ class LLMManager:
             try:
                 logger.info(f"Sending request to LLM (Attempt {attempt}/{max_retries})...")
                 result = chain.invoke({"content": user_content})
-                return result
+                if not result or not str(result).strip():
+                    raise ValueError("LLM returned an empty response.")
+                return str(result).strip()
             except Exception as e:
                 logger.warning(f"Attempt {attempt}/{max_retries} failed querying LLM server: {e}")
                 if attempt < max_retries:
