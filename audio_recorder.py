@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 class AudioRecorder:
     """Manages audio recording of speaker output and/or microphone using GStreamer."""
     
-    def __init__(self, output_path: str = "temp_zoom_audio.ogg"):
+    def __init__(self, output_path: str = "temp_zoom_audio.ogg", mic_only: bool = False):
         self.output_path = os.path.abspath(output_path)
+        self.mic_only = mic_only
         self._pipeline = None
         self._is_recording = False
         
@@ -52,6 +53,18 @@ class AudioRecorder:
                     
         return mic_device, monitor_device
 
+    def _get_active_input_display_name(self) -> str:
+        """Returns the human-readable display name of the currently active default input device."""
+        try:
+            import subprocess
+            out = subprocess.check_output(["wpctl", "inspect", "@DEFAULT_AUDIO_SOURCE@"], stderr=subprocess.DEVNULL, text=True)
+            for line in out.splitlines():
+                if "node.description" in line:
+                    return line.split("=", 1)[1].strip().strip('"')
+        except Exception:
+            pass
+        return "Micrófono predeterminado del sistema"
+
     def start(self) -> bool:
         """Starts the audio recording pipeline."""
         if self._is_recording:
@@ -59,44 +72,49 @@ class AudioRecorder:
             return True
             
         mic, mon = self._discover_devices()
-        
-        # Fallback to PulseAudio/PipeWire default devices if dynamic discovery returned None
-        if mon is None:
+        active_mic_name = self._get_active_input_display_name()
+        # Always use active PulseAudio/PipeWire default source for microphone capture
+        if self.mic_only or mic is None or config.RECORD_MICROPHONE:
+            mic = "@DEFAULT_SOURCE@"
+            logger.info(f"Using default active microphone source: '{mic}' ({active_mic_name})")
+
+        if self.mic_only:
+            mon = None
+        elif mon is None:
             mon = "@DEFAULT_SINK@.monitor"
             logger.info(f"Using default speaker monitor fallback: '{mon}'")
-            
-        if mic is None and config.RECORD_MICROPHONE:
-            mic = "@DEFAULT_SOURCE@"
-            logger.info(f"Using default microphone fallback: '{mic}'")
         
-        # Check config to see if microphone is enabled
-        record_mic = config.RECORD_MICROPHONE and mic is not None
-        record_mon = mon is not None
+        # Check config or mic_only to see if microphone is enabled
+        record_mic = (config.RECORD_MICROPHONE or self.mic_only) and mic is not None
+        record_mon = (not self.mic_only) and mon is not None
         
         if not record_mic and not record_mon:
             logger.error("No audio devices found or enabled for recording.")
             return False
             
+        is_wav = self.output_path.lower().endswith(".wav")
+        enc_str = "wavenc" if is_wav else "opusenc ! oggmux"
+
         # Build GStreamer pipeline string
         if record_mic and record_mon:
             # Both microphone and system speaker monitor are active: mix them
             logger.info("Recording both microphone and speaker audio...")
             pipeline_str = (
-                f"audiomixer name=mixer ! audioconvert ! audioresample ! opusenc ! oggmux ! filesink location=\"{self.output_path}\" "
-                f"pulsesrc device=\"{mic}\" ! audioconvert ! audioresample ! queue ! mixer.sink_0 "
+                f"audiomixer name=mixer ! audioconvert ! audioresample ! {enc_str} ! filesink location=\"{self.output_path}\" "
+                f"pulsesrc device=\"{mic}\" ! volume volume=2.0 ! audioconvert ! audioresample ! queue ! mixer.sink_0 "
                 f"pulsesrc device=\"{mon}\" ! audioconvert ! audioresample ! queue ! mixer.sink_1"
             )
         elif record_mon:
             # Only speaker monitor is active/enabled
             logger.info("Recording only internal speaker audio (microphone disabled)...")
             pipeline_str = (
-                f"pulsesrc device=\"{mon}\" ! audioconvert ! audioresample ! opusenc ! oggmux ! filesink location=\"{self.output_path}\""
+                f"pulsesrc device=\"{mon}\" ! audioconvert ! audioresample ! {enc_str} ! filesink location=\"{self.output_path}\""
             )
         else:
             # Only microphone is active/enabled
             logger.info("Recording only microphone audio (speaker monitor disabled)...")
             pipeline_str = (
-                f"pulsesrc device=\"{mic}\" ! audioconvert ! audioresample ! opusenc ! oggmux ! filesink location=\"{self.output_path}\""
+                f"pulsesrc device=\"{mic}\" ! volume volume=2.0 ! audioconvert ! audioresample ! {enc_str} ! filesink location=\"{self.output_path}\""
             )
         logger.debug(f"Audio GStreamer Pipeline: {pipeline_str}")
         
@@ -111,6 +129,27 @@ class AudioRecorder:
             logger.error(f"Failed to start audio pipeline: {e}")
             self._pipeline = None
             return False
+
+    def pause(self) -> bool:
+        """Pauses the audio recording pipeline."""
+        if not self._is_recording or not self._pipeline:
+            return False
+        logger.info("Pausing audio pipeline...")
+        self._pipeline.set_state(Gst.State.PAUSED)
+        self._is_paused = True
+        return True
+
+    def resume(self) -> bool:
+        """Resumes the audio recording pipeline."""
+        if not self._is_recording or not self._pipeline:
+            return False
+        logger.info("Resuming audio pipeline...")
+        self._pipeline.set_state(Gst.State.PLAYING)
+        self._is_paused = False
+        return True
+
+    def is_paused(self) -> bool:
+        return getattr(self, "_is_paused", False)
 
     def stop(self) -> str:
         """Stops the audio recording pipeline and returns the path to the recorded Ogg file."""
@@ -137,7 +176,8 @@ class AudioRecorder:
                     logger.info("Audio pipeline reached EOS.")
             else:
                 logger.warning("Timeout waiting for audio pipeline EOS event.")
-                
+
+            time.sleep(0.3)
         except Exception as e:
             logger.error(f"Error while stopping audio pipeline: {e}")
         finally:

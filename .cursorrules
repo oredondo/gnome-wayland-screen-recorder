@@ -4,7 +4,24 @@ This file defines the mandatory rules and guidelines that AI coding assistants (
 
 ---
 
-## 🧪 1. Mandatory Test Execution & Test Creation (CRITICAL)
+## 🏗️ 1. Architectural Rules: OOP, Small Modular Files & Code Reuse (CRITICAL)
+
+1. **Strict Object-Oriented Programming (OOP)**:
+   * Design all components using OOP principles (classes, clear encapsulation, single responsibility, and composition).
+   * Avoid procedural monoliths or global state mutation.
+
+2. **Small, Focused, Single-Purpose Files**:
+   * Every file MUST have a single responsibility and be strictly modular.
+   * Target keeping source files under **150 to 200 lines**.
+   * When a module grows (such as UI windows or pipeline orchestrators), refactor it immediately into sub-packages or child components (e.g., `gui_components/recorder_tab.py`, `gui_components/dialogs.py`).
+
+3. **Maximal Code Reuse**:
+   * **Never duplicate logic**: Always inspect the codebase first and reuse existing classes, methods, and utilities (e.g., `MediaProcessor`, `ZoomDetector`, `DialogUtils`, `LLMManager`, `VideoOCRExtractor`).
+   * When adding new features, build them as isolated modules that consume pre-existing services via clean OOP interfaces.
+
+---
+
+## 🧪 2. Mandatory Test Execution & Test Creation (CRITICAL)
 
 1. **Always Run Full Test Suite**:
    Whenever ANY code file is created, updated, or refactored, you MUST run the entire test suite using `pytest` inside the virtual environment:
@@ -19,7 +36,7 @@ This file defines the mandatory rules and guidelines that AI coding assistants (
 
 ---
 
-## 🎨 2. PEP 8 Code Quality Standards
+## 🎨 3. PEP 8 Code Quality Standards
 
 All Python code MUST strictly adhere to **PEP 8** coding standards:
 * **Naming Conventions**: `snake_case` for functions, methods, and variables; `CamelCase` for classes; `UPPER_CASE` for constants.
@@ -33,7 +50,7 @@ All Python code MUST strictly adhere to **PEP 8** coding standards:
 
 ---
 
-## 🛡️ 3. Static Security Analysis (Bandit)
+## 🛡️ 4. Static Security Analysis (Bandit)
 
 All Python code MUST pass static security analysis with **Bandit**:
 1. **Run Bandit Security Audit**:
@@ -48,7 +65,7 @@ All Python code MUST pass static security analysis with **Bandit**:
 
 ---
 
-## 📖 4. Documentation Integrity
+## 📖 5. Documentation Integrity
 
 Whenever you introduce a new feature, change a configuration option, edit GUI tabs, or modify pipeline parameters:
 1. **Always update the documentation** in **[README.md](file:///home/cristina/Documentos/grabarPantalla/README.md)** (for user guides, GUI tabs, CLI flags, configuration variables, installation steps, and test instructions).
@@ -56,16 +73,13 @@ Whenever you introduce a new feature, change a configuration option, edit GUI ta
 
 ---
 
-## 🏗️ 5. Architectural Rules & File Guidelines
+## ⚙️ 6. Centralized Configuration
 
-* **Object-Oriented Programming (OOP)**: Maintain an OOP architecture with decoupled components.
-* **Modular Constraints**: Every file should be single-purpose. Keep source files under **300 lines** for high maintainability.
-* **Centralized Configuration**:
-  * Recorder settings, paths, codecs, framerates, and sync offsets live in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**.
-  * LLM & Pipeline credentials and limits live in **[pipeline_config.py](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py)** (and its safe template **[pipeline_config.py.example](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py.example)**).
+* Recorder settings, paths, codecs, framerates, and sync offsets live in **[config.py](file:///home/cristina/Documentos/grabarPantalla/config.py)**.
+* LLM & Pipeline credentials and limits live in **[pipeline_config.py](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py)** (and its safe template **[pipeline_config.py.example](file:///home/cristina/Documentos/grabarPantalla/pipeline_config.py.example)**).
 
 ---
 
-## 🌍 6. Language Policy
+## 🌍 7. Language Policy
 
 * **English Only**: All source code, variable/class names, UI text, logs, console print messages, comments, commit messages, and documentation (`README.md`, `.cursorrules`, rules) must be written in **English**.
